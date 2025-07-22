@@ -1,0 +1,57 @@
+repos:
+  # Pre-commit hooks for basic checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: ['--markdown-linebreak-ext=md']
+      - id: end-of-file-fixer
+      - id: check-yaml
+        exclude: ^config/.*\.yaml$
+      - id: check-added-large-files
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: check-json
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+
+  # ESLint for JavaScript linting
+  - repo: local
+    hooks:
+      - id: eslint
+        name: ESLint
+        entry: npx eslint --fix
+        language: node
+        files: \.(js|ts|jsx|tsx)$
+        additional_dependencies:
+          - eslint@8.57.1
+
+  # Trivy security scanner (disabled for now - can be enabled later)
+  # - repo: local
+  #   hooks:
+  #     - id: trivy-fs
+  #       name: Trivy filesystem scan
+  #       description: Run Trivy filesystem scan
+  #       entry: trivy fs --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --exit-code 1 .
+  #       language: system
+  #       pass_filenames: false
+  #       files: \.(js|json|yaml|yml|dockerfile|py)$
+
+  # Docker security scanning (disabled for now - can be enabled later)
+  # - repo: local
+  #   hooks:
+  #     - id: trivy-docker
+  #       name: Trivy Docker image scan
+  #       description: Run Trivy Docker image scan
+  #       entry: bash -c 'if [ -f Dockerfile ]; then docker build -t local-scan:latest . > /dev/null 2>&1; trivy image --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --exit-code 1 local-scan:latest; docker rmi local-scan:latest > /dev/null 2>&1; fi'
+  #       language: system
+  #       pass_filenames: false
+  #       files: ^Dockerfile$
+
+  # Additional security checks
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: package-lock.json
