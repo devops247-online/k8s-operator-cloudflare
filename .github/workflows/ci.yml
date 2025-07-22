@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 env:
-  GOLANGCI_LINT_VERSION: 'v1.62.2'
+  GOLANGCI_LINT_VERSION: 'latest'
 
 jobs:
   ci:
@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ==================== SETUP ====================
+      # ==================== SETUP STEPS ====================
       - name: 🛒 Checkout code
         uses: actions/checkout@v4
 
@@ -36,10 +36,12 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: 📥 Download dependencies
-        run: go mod download
+        run: |
+          go mod download
+          go mod tidy
 
-      # ==================== CODE QUALITY ====================
-      - name: 🎨 Format check
+      # ==================== CODE QUALITY STEPS ====================
+      - name: 🎨 Check code formatting
         run: |
           go fmt ./...
           if [ -n "$(git diff --name-only)" ]; then
@@ -48,23 +50,19 @@ jobs:
             exit 1
           fi
 
-      - name: 🔍 Go vet
+      - name: 🔍 Run go vet
         run: go vet ./...
 
-      - name: 🧹 Lint with golangci-lint
+      - name: 🧹 Run golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
           version: ${{ env.GOLANGCI_LINT_VERSION }}
           args: --timeout=10m
           skip-cache: false
-          skip-pkg-cache: false
-          skip-build-cache: false
 
-      # ==================== TESTING ====================
+      # ==================== TESTING STEPS ====================
       - name: 🧪 Run unit tests
-        run: |
-          go mod tidy
-          make test
+        run: make test
 
       - name: 📊 Upload coverage reports
         uses: codecov/codecov-action@v4
@@ -75,94 +73,105 @@ jobs:
         if: hashFiles('cover.out') != ''
         continue-on-error: true
 
-      # ==================== SECURITY ====================
+      # ==================== SECURITY STEPS ====================
       - name: 🔐 Install gosec
         run: |
-          curl -sfL https://raw.githubusercontent.com/securecodewarrior/gosec/master/install.sh | sh -s -- -b $(go env GOPATH)/bin latest
+          go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
         continue-on-error: true
 
-      - name: 🔐 Run security scan with gosec
+      - name: 🔐 Run security scan
         run: |
-          $(go env GOPATH)/bin/gosec -fmt sarif -out gosec.sarif ./... || echo "Gosec scan completed with findings"
+          gosec -fmt sarif -out gosec.sarif ./... || echo "Gosec scan completed with findings"
         continue-on-error: true
 
-      - name: 🔍 Upload SARIF file
+      - name: 🔍 Upload security scan results
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: gosec.sarif
         if: hashFiles('gosec.sarif') != ''
         continue-on-error: true
 
-      # ==================== BUILD ====================
-      - name: 🔨 Build binary
+      # ==================== BUILD STEPS ====================
+      - name: 🔨 Build manager binary
         run: |
           make build
           ls -la bin/
 
       - name: 🐳 Build Docker image
-        run: |
-          make docker-build IMG=test-image:latest
+        run: make docker-build IMG=test-image:latest
 
-      - name: 🔍 Test Docker image
+      - name: 🔍 Inspect Docker image
         run: |
           docker inspect test-image:latest
-          echo "Docker image built successfully"
+          echo "✅ Docker image built successfully"
 
-      # ==================== KUBERNETES TESTING ====================
+      # ==================== MANIFEST STEPS ====================
+      - name: 📝 Generate manifests
+        run: make manifests generate
+
+      - name: 🔍 Check generated files
+        run: |
+          if [ -n "$(git diff --name-only)" ]; then
+            echo "❌ Generated files are out of sync. Please run 'make manifests generate' and commit the changes."
+            git diff
+            exit 1
+          fi
+          echo "✅ Generated files are up to date"
+
+      - name: 🔧 Build installer
+        run: |
+          make build-installer IMG=test-image:latest
+          ls -la dist/
+
+      - name: 🔍 Validate Kubernetes manifests
+        run: |
+          # Install kubectl if not available
+          if ! command -v kubectl &> /dev/null; then
+            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+            chmod +x kubectl
+            sudo mv kubectl /usr/local/bin/
+          fi
+          kubectl --dry-run=client apply -f dist/install.yaml
+          echo "✅ Kubernetes manifests are valid"
+
+      # ==================== KUBERNETES TESTING STEPS ====================
       - name: ⚙️ Install Kind
         run: |
           curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-amd64
           chmod +x ./kind
           sudo mv ./kind /usr/local/bin/kind
-
-      - name: 🔧 Verify Kind installation
-        run: kind version
-
-      - name: 🎯 Install kubectl
-        run: |
-          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          chmod +x kubectl
-          sudo mv kubectl /usr/local/bin/
+          kind version
 
       - name: 🧪 Run E2E tests
         run: |
           export CERT_MANAGER_INSTALL_SKIP=true
-          make test-e2e || echo "E2E tests completed with some failures - this is expected for initial setup"
+          make test-e2e || echo "⚠️ E2E tests completed with some failures - this is expected for initial setup"
         timeout-minutes: 30
         continue-on-error: true
 
-      # ==================== MANIFESTS ====================
-      - name: 📝 Generate and validate manifests
+      # ==================== FINAL VALIDATION STEP ====================
+      - name: ✅ Final validation and summary
         run: |
-          make manifests
-          make generate
-          if [ -n "$(git diff --name-only)" ]; then
-            echo "Generated files are out of sync. Please run 'make manifests generate' and commit the changes."
-            git diff
-            exit 1
-          fi
-
-      - name: 🔧 Validate Kubernetes manifests
-        run: |
-          make build-installer IMG=test-image:latest
-          ls -la dist/
-          kubectl --dry-run=client apply -f dist/install.yaml
-
-      # ==================== FINAL VALIDATION ====================
-      - name: ✅ Final validation
-        run: |
-          echo "🎉 All CI steps completed successfully!"
-          echo "📊 Test coverage report generated"
-          echo "🔐 Security scans completed"
-          echo "🐳 Docker image built and tested"
-          echo "🎯 E2E tests passed"
-          echo "📝 Manifests validated"
+          echo "🎉 CI Pipeline completed successfully!"
           echo ""
-          echo "✨ Ready for deployment! ✨"
+          echo "📋 Summary:"
+          echo "  ✅ Code formatting: PASSED"
+          echo "  ✅ Static analysis: PASSED"
+          echo "  ✅ Unit tests: PASSED"
+          echo "  ✅ Security scan: COMPLETED"
+          echo "  ✅ Binary build: PASSED"
+          echo "  ✅ Docker build: PASSED"
+          echo "  ✅ Manifest validation: PASSED"
+          echo "  ⚠️  E2E tests: COMPLETED (may have expected failures)"
+          echo ""
+          echo "🚀 Ready for deployment!"
 
-      # ==================== CLEANUP ====================
-      - name: 🧹 Cleanup
+      # ==================== CLEANUP STEP ====================
+      - name: 🧹 Cleanup resources
         if: always()
         run: |
+          echo "🧹 Cleaning up resources..."
           docker system prune -f || true
           kind delete clusters --all || true
+          rm -f gosec.sarif || true
+          echo "✅ Cleanup completed"
