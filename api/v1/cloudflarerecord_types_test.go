@@ -280,191 +280,144 @@ func TestCloudflareRecord_StructCreation(t *testing.T) {
 }
 
 func TestCloudflareRecordSpec_EdgeCases(t *testing.T) {
+	t.Run("EmptyRequiredFields", testEmptyRequiredFields)
+	t.Run("InvalidNumericValues", testInvalidNumericValues)
+	t.Run("InvalidRangeValues", testInvalidRangeValues)
+	t.Run("InvalidLengthValues", testInvalidLengthValues)
+}
+
+func testEmptyRequiredFields(t *testing.T) {
 	tests := []struct {
-		name        string
-		spec        CloudflareRecordSpec
-		expectValid bool
-		description string
+		name string
+		spec CloudflareRecordSpec
 	}{
 		{
 			name: "empty zone",
 			spec: CloudflareRecordSpec{
-				Zone:                           "",
-				Type:                           "A",
-				Name:                           "test.example.com",
-				Content:                        "1.2.3.4",
+				Zone: "", Type: "A", Name: "test.example.com", Content: "1.2.3.4",
 				CloudflareCredentialsSecretRef: SecretReference{Name: "secret"},
 			},
-			expectValid: false,
-			description: "Zone should not be empty",
 		},
 		{
 			name: "empty type",
 			spec: CloudflareRecordSpec{
-				Zone:                           "example.com",
-				Type:                           "",
-				Name:                           "test.example.com",
-				Content:                        "1.2.3.4",
+				Zone: "example.com", Type: "", Name: "test.example.com", Content: "1.2.3.4",
 				CloudflareCredentialsSecretRef: SecretReference{Name: "secret"},
 			},
-			expectValid: false,
-			description: "Type should not be empty",
 		},
 		{
 			name: "empty name",
 			spec: CloudflareRecordSpec{
-				Zone:                           "example.com",
-				Type:                           "A",
-				Name:                           "",
-				Content:                        "1.2.3.4",
+				Zone: "example.com", Type: "A", Name: "", Content: "1.2.3.4",
 				CloudflareCredentialsSecretRef: SecretReference{Name: "secret"},
 			},
-			expectValid: false,
-			description: "Name should not be empty",
 		},
 		{
 			name: "empty content",
 			spec: CloudflareRecordSpec{
-				Zone:                           "example.com",
-				Type:                           "A",
-				Name:                           "test.example.com",
-				Content:                        "",
+				Zone: "example.com", Type: "A", Name: "test.example.com", Content: "",
 				CloudflareCredentialsSecretRef: SecretReference{Name: "secret"},
 			},
-			expectValid: false,
-			description: "Content should not be empty",
 		},
 		{
 			name: "empty secret name",
 			spec: CloudflareRecordSpec{
-				Zone:                           "example.com",
-				Type:                           "A",
-				Name:                           "test.example.com",
-				Content:                        "1.2.3.4",
+				Zone: "example.com", Type: "A", Name: "test.example.com", Content: "1.2.3.4",
 				CloudflareCredentialsSecretRef: SecretReference{Name: ""},
 			},
-			expectValid: false,
-			description: "Secret name should not be empty",
-		},
-		{
-			name: "negative TTL",
-			spec: CloudflareRecordSpec{
-				Zone:                           "example.com",
-				Type:                           "A",
-				Name:                           "test.example.com",
-				Content:                        "1.2.3.4",
-				TTL:                            ptr.To(-1),
-				CloudflareCredentialsSecretRef: SecretReference{Name: "secret"},
-			},
-			expectValid: false,
-			description: "TTL should be positive",
-		},
-		{
-			name: "negative priority",
-			spec: CloudflareRecordSpec{
-				Zone:                           "example.com",
-				Type:                           "MX",
-				Name:                           "example.com",
-				Content:                        "mail.example.com",
-				Priority:                       ptr.To(-1),
-				CloudflareCredentialsSecretRef: SecretReference{Name: "secret"},
-			},
-			expectValid: false,
-			description: "Priority should not be negative",
-		},
-		{
-			name: "very large TTL",
-			spec: CloudflareRecordSpec{
-				Zone:                           "example.com",
-				Type:                           "A",
-				Name:                           "test.example.com",
-				Content:                        "1.2.3.4",
-				TTL:                            ptr.To(2147483648), // Greater than max int32
-				CloudflareCredentialsSecretRef: SecretReference{Name: "secret"},
-			},
-			expectValid: false,
-			description: "TTL should not exceed maximum value",
-		},
-		{
-			name: "very large priority",
-			spec: CloudflareRecordSpec{
-				Zone:                           "example.com",
-				Type:                           "MX",
-				Name:                           "example.com",
-				Content:                        "mail.example.com",
-				Priority:                       ptr.To(65536), // Greater than max uint16
-				CloudflareCredentialsSecretRef: SecretReference{Name: "secret"},
-			},
-			expectValid: false,
-			description: "Priority should not exceed maximum value",
-		},
-		{
-			name: "long comment",
-			spec: CloudflareRecordSpec{
-				Zone:                           "example.com",
-				Type:                           "A",
-				Name:                           "test.example.com",
-				Content:                        "1.2.3.4",
-				Comment:                        ptr.To("This is a very long comment that exceeds the maximum allowed length of 100 characters for comments in DNS records, which should be invalid according to the kubebuilder validation rules"),
-				CloudflareCredentialsSecretRef: SecretReference{Name: "secret"},
-			},
-			expectValid: false,
-			description: "Comment should not exceed 100 characters",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			record := &CloudflareRecord{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "edge-case-test",
-					Namespace: "default",
-				},
-				Spec: tt.spec,
-			}
-
-			// Basic structural checks based on expectValid
-			if tt.expectValid {
-				assert.NotEmpty(t, record.Spec.Zone, tt.description)
-				assert.NotEmpty(t, record.Spec.Type, tt.description)
-				assert.NotEmpty(t, record.Spec.Name, tt.description)
-				assert.NotEmpty(t, record.Spec.Content, tt.description)
-			} else {
-				// For invalid cases, check that at least one validation would fail
-				hasValidationIssue := false
-
-				if record.Spec.Zone == "" ||
-					record.Spec.Type == "" ||
-					record.Spec.Name == "" ||
-					record.Spec.Content == "" ||
-					record.Spec.CloudflareCredentialsSecretRef.Name == "" {
-					hasValidationIssue = true
-				}
-
-				if record.Spec.TTL != nil && *record.Spec.TTL < 1 {
-					hasValidationIssue = true
-				}
-
-				if record.Spec.TTL != nil && *record.Spec.TTL > 2147483647 {
-					hasValidationIssue = true
-				}
-
-				if record.Spec.Priority != nil && *record.Spec.Priority < 0 {
-					hasValidationIssue = true
-				}
-
-				if record.Spec.Priority != nil && *record.Spec.Priority > 65535 {
-					hasValidationIssue = true
-				}
-
-				if record.Spec.Comment != nil && len(*record.Spec.Comment) > 100 {
-					hasValidationIssue = true
-				}
-
-				assert.True(t, hasValidationIssue, tt.description)
-			}
+			hasValidationIssue := tt.spec.Zone == "" || tt.spec.Type == "" ||
+				tt.spec.Name == "" || tt.spec.Content == "" ||
+				tt.spec.CloudflareCredentialsSecretRef.Name == ""
+			assert.True(t, hasValidationIssue, "Should have validation issue for empty required field")
 		})
 	}
+}
+
+func testInvalidNumericValues(t *testing.T) {
+	tests := []struct {
+		name string
+		spec CloudflareRecordSpec
+	}{
+		{
+			name: "negative TTL",
+			spec: CloudflareRecordSpec{
+				Zone: "example.com", Type: "A", Name: "test.example.com", Content: "1.2.3.4",
+				TTL: ptr.To(-1), CloudflareCredentialsSecretRef: SecretReference{Name: "secret"},
+			},
+		},
+		{
+			name: "negative priority",
+			spec: CloudflareRecordSpec{
+				Zone: "example.com", Type: "MX", Name: "example.com", Content: "mail.example.com",
+				Priority: ptr.To(-1), CloudflareCredentialsSecretRef: SecretReference{Name: "secret"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hasValidationIssue := false
+			if tt.spec.TTL != nil && *tt.spec.TTL < 1 {
+				hasValidationIssue = true
+			}
+			if tt.spec.Priority != nil && *tt.spec.Priority < 0 {
+				hasValidationIssue = true
+			}
+			assert.True(t, hasValidationIssue, "Should have validation issue for negative values")
+		})
+	}
+}
+
+func testInvalidRangeValues(t *testing.T) {
+	tests := []struct {
+		name string
+		spec CloudflareRecordSpec
+	}{
+		{
+			name: "very large TTL",
+			spec: CloudflareRecordSpec{
+				Zone: "example.com", Type: "A", Name: "test.example.com", Content: "1.2.3.4",
+				TTL: ptr.To(2147483648), CloudflareCredentialsSecretRef: SecretReference{Name: "secret"},
+			},
+		},
+		{
+			name: "very large priority",
+			spec: CloudflareRecordSpec{
+				Zone: "example.com", Type: "MX", Name: "example.com", Content: "mail.example.com",
+				Priority: ptr.To(65536), CloudflareCredentialsSecretRef: SecretReference{Name: "secret"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hasValidationIssue := false
+			if tt.spec.TTL != nil && *tt.spec.TTL > 2147483647 {
+				hasValidationIssue = true
+			}
+			if tt.spec.Priority != nil && *tt.spec.Priority > 65535 {
+				hasValidationIssue = true
+			}
+			assert.True(t, hasValidationIssue, "Should have validation issue for out-of-range values")
+		})
+	}
+}
+
+func testInvalidLengthValues(t *testing.T) {
+	longComment := "This is a very long comment that exceeds the maximum allowed length of 100 characters for comments in DNS records, which should be invalid according to the kubebuilder validation rules"
+
+	spec := CloudflareRecordSpec{
+		Zone: "example.com", Type: "A", Name: "test.example.com", Content: "1.2.3.4",
+		Comment: ptr.To(longComment), CloudflareCredentialsSecretRef: SecretReference{Name: "secret"},
+	}
+
+	hasValidationIssue := spec.Comment != nil && len(*spec.Comment) > 100
+	assert.True(t, hasValidationIssue, "Should have validation issue for too long comment")
 }
 
 func TestSecretReference_EdgeCases(t *testing.T) {
