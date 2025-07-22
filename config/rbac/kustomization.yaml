@@ -25,4 +25,3 @@ resources:
 - cloudflarerecord_admin_role.yaml
 - cloudflarerecord_editor_role.yaml
 - cloudflarerecord_viewer_role.yaml
-
