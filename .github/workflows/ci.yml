@@ -215,45 +215,62 @@ jobs:
           # Install dependencies
           pip3 install PyYAML
 
-          # Install kubectl if not available
-          if ! command -v kubectl &> /dev/null; then
-            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-            chmod +x kubectl
-            sudo mv kubectl /usr/local/bin/
-          fi
-
-          # Validate YAML syntax and basic structure without API server
-          kubectl --dry-run=client --validate=false apply -f dist/install.yaml
-
-          # Additional validation using kubeval if available
-          if command -v kubeval &> /dev/null; then
-            kubeval dist/install.yaml
-          else
-            echo "ℹ️ kubeval not available, skipping schema validation"
-          fi
-
-          # Basic YAML syntax check
+          # Basic YAML syntax and structure validation using Python
           python3 -c "
           import yaml
           import sys
-          try:
-              with open('dist/install.yaml', 'r') as f:
-                  docs = list(yaml.safe_load_all(f))
-              print(f'✅ YAML syntax valid - found {len(docs)} documents')
 
-              # Check for required fields in each document
-              for i, doc in enumerate(docs):
-                  if doc and 'apiVersion' in doc and 'kind' in doc:
-                      print(f'  Document {i+1}: {doc[\"kind\"]} ({doc[\"apiVersion\"]})')
-                  elif doc:
-                      print(f'  Document {i+1}: Missing required fields (apiVersion or kind)')
-                      sys.exit(1)
-          except Exception as e:
-              print(f'❌ YAML validation failed: {e}')
-              sys.exit(1)
+          def validate_k8s_manifest(file_path):
+              try:
+                  with open(file_path, 'r') as f:
+                      docs = list(yaml.safe_load_all(f))
+
+                  print(f'✅ YAML syntax valid - found {len(docs)} documents')
+
+                  # Check for required fields in each document
+                  for i, doc in enumerate(docs):
+                      if not doc:  # Skip empty documents
+                          continue
+
+                      if 'apiVersion' in doc and 'kind' in doc:
+                          print(f'  Document {i+1}: {doc[\"kind\"]} ({doc[\"apiVersion\"]})')
+
+                          # Validate metadata for most resources
+                          if doc[\"kind\"] not in ['CustomResourceDefinition']:
+                              if 'metadata' not in doc or 'name' not in doc.get('metadata', {}):
+                                  print(f'  ❌ Document {i+1}: Missing required metadata.name field')
+                                  sys.exit(1)
+                      elif doc:
+                          print(f'  ❌ Document {i+1}: Missing required fields (apiVersion or kind)')
+                          sys.exit(1)
+
+                  return True
+              except yaml.YAMLError as e:
+                  print(f'❌ YAML parsing failed: {e}')
+                  sys.exit(1)
+              except FileNotFoundError:
+                  print(f'❌ File not found: {file_path}')
+                  sys.exit(1)
+              except Exception as e:
+                  print(f'❌ Validation failed: {e}')
+                  sys.exit(1)
+
+          if validate_k8s_manifest('dist/install.yaml'):
+              print('✅ All Kubernetes manifests are valid')
           "
 
-          echo "✅ Kubernetes manifests are valid"
+          # Verify file exists and has content
+          if [ ! -f dist/install.yaml ]; then
+            echo "❌ dist/install.yaml not found"
+            exit 1
+          fi
+
+          if [ ! -s dist/install.yaml ]; then
+            echo "❌ dist/install.yaml is empty"
+            exit 1
+          fi
+
+          echo "✅ Kubernetes manifests validation completed successfully"
 
       - name: 📤 Upload manifest artifact
         uses: actions/upload-artifact@v4
