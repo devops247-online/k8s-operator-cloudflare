@@ -1,0 +1,21 @@
+apiVersion: dns.cloudflare.io/v1
+kind: CloudflareRecord
+metadata:
+  labels:
+    app.kubernetes.io/name: cloudflare-dns-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: cloudflarerecord-sample
+  namespace: default
+spec:
+  zone: "example.com"
+  type: "A"
+  name: "test.example.com"
+  content: "192.168.1.100"
+  ttl: 3600
+  proxied: false
+  comment: "Managed by Kubernetes CloudflareRecord operator"
+  tags:
+    - "kubernetes"
+    - "operator"
+  cloudflareCredentialsSecretRef:
+    name: "cloudflare-api-secret"

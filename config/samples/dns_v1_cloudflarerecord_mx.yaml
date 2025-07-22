@@ -1,0 +1,22 @@
+apiVersion: dns.cloudflare.io/v1
+kind: CloudflareRecord
+metadata:
+  labels:
+    app.kubernetes.io/name: cloudflare-dns-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: cloudflarerecord-mx-sample
+  namespace: default
+spec:
+  zone: "example.com"
+  type: "MX"
+  name: "example.com"
+  content: "mail.example.com"
+  ttl: 3600
+  priority: 10
+  comment: "MX record for email"
+  tags:
+    - "kubernetes"
+    - "mx"
+    - "email"
+  cloudflareCredentialsSecretRef:
+    name: "cloudflare-api-secret"

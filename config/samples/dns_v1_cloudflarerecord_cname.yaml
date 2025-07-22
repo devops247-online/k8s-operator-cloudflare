@@ -1,0 +1,21 @@
+apiVersion: dns.cloudflare.io/v1
+kind: CloudflareRecord
+metadata:
+  labels:
+    app.kubernetes.io/name: cloudflare-dns-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: cloudflarerecord-cname-sample
+  namespace: default
+spec:
+  zone: "example.com"
+  type: "CNAME"
+  name: "www.example.com"
+  content: "example.com"
+  ttl: 1800
+  proxied: true
+  comment: "CNAME record with proxy enabled"
+  tags:
+    - "kubernetes"
+    - "cname"
+  cloudflareCredentialsSecretRef:
+    name: "cloudflare-api-secret"
