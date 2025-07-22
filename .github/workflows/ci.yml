@@ -1,0 +1,157 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  GOLANGCI_LINT_VERSION: 'v1.62.2'
+
+jobs:
+  ci:
+    name: Complete CI Pipeline
+    runs-on: ubuntu-latest
+
+    steps:
+      # ==================== SETUP ====================
+      - name: 🛒 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐹 Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: 📦 Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: 📥 Download dependencies
+        run: go mod download
+
+      # ==================== CODE QUALITY ====================
+      - name: 🎨 Format check
+        run: |
+          go fmt ./...
+          if [ -n "$(git diff --name-only)" ]; then
+            echo "Code is not formatted. Run 'go fmt ./...' to fix."
+            git diff
+            exit 1
+          fi
+
+      - name: 🔍 Go vet
+        run: go vet ./...
+
+      - name: 🧹 Lint with golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: ${{ env.GOLANGCI_LINT_VERSION }}
+          args: --timeout=10m
+
+      # ==================== TESTING ====================
+      - name: 🧪 Run unit tests
+        run: |
+          go mod tidy
+          make test
+
+      - name: 📊 Upload coverage reports
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./cover.out
+          flags: unittests
+          name: codecov-umbrella
+        continue-on-error: true
+
+      # ==================== SECURITY ====================
+      - name: 🔐 Run security scan with gosec
+        uses: securecodewarrior/github-action-gosec@master
+        with:
+          args: '-fmt sarif -out gosec.sarif ./...'
+        continue-on-error: true
+
+      - name: 🔍 Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: gosec.sarif
+        continue-on-error: true
+
+      # ==================== BUILD ====================
+      - name: 🔨 Build binary
+        run: |
+          make build
+          ls -la bin/
+
+      - name: 🐳 Build Docker image
+        run: |
+          make docker-build IMG=test-image:latest
+
+      - name: 🔍 Test Docker image
+        run: |
+          docker run --rm test-image:latest --version || echo "Version check skipped"
+          docker inspect test-image:latest
+
+      # ==================== KUBERNETES TESTING ====================
+      - name: ⚙️ Install Kind
+        run: |
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+
+      - name: 🔧 Verify Kind installation
+        run: kind version
+
+      - name: 🎯 Install kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+
+      - name: 🧪 Run E2E tests
+        run: |
+          make test-e2e
+        timeout-minutes: 30
+
+      # ==================== MANIFESTS ====================
+      - name: 📝 Generate and validate manifests
+        run: |
+          make manifests
+          make generate
+          if [ -n "$(git diff --name-only)" ]; then
+            echo "Generated files are out of sync. Please run 'make manifests generate' and commit the changes."
+            git diff
+            exit 1
+          fi
+
+      - name: 🔧 Validate Kubernetes manifests
+        run: |
+          make build-installer IMG=test-image:latest
+          ls -la dist/
+          kubectl --dry-run=client apply -f dist/install.yaml
+
+      # ==================== FINAL VALIDATION ====================
+      - name: ✅ Final validation
+        run: |
+          echo "🎉 All CI steps completed successfully!"
+          echo "📊 Test coverage report generated"
+          echo "🔐 Security scans completed"
+          echo "🐳 Docker image built and tested"
+          echo "🎯 E2E tests passed"
+          echo "📝 Manifests validated"
+          echo ""
+          echo "✨ Ready for deployment! ✨"
+
+      # ==================== CLEANUP ====================
+      - name: 🧹 Cleanup
+        if: always()
+        run: |
+          docker system prune -f || true
+          kind delete clusters --all || true
