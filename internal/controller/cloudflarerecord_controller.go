@@ -90,7 +90,7 @@ func (r *CloudflareRecordReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// For now, just update status to show operator is working
 
 	// Update status to indicate processing
-	r.updateStatus(ctx, &cloudflareRecord, true, dnsv1.ConditionReasonRecordCreated, "DNS record processing completed (implementation ready for Cloudflare API)")
+	r.updateStatus(&cloudflareRecord, true, dnsv1.ConditionReasonRecordCreated, "DNS record processing completed (implementation ready for Cloudflare API)")
 
 	cloudflareRecord.Status.ObservedGeneration = cloudflareRecord.Generation
 	now := metav1.NewTime(time.Now())
@@ -123,7 +123,7 @@ func (r *CloudflareRecordReconciler) reconcileDelete(ctx context.Context, cloudf
 }
 
 // updateStatus updates the status of the CloudflareRecord
-func (r *CloudflareRecordReconciler) updateStatus(ctx context.Context, cloudflareRecord *dnsv1.CloudflareRecord, ready bool, reason, message string) {
+func (r *CloudflareRecordReconciler) updateStatus(cloudflareRecord *dnsv1.CloudflareRecord, ready bool, reason, message string) {
 	cloudflareRecord.Status.Ready = ready
 
 	// Update condition

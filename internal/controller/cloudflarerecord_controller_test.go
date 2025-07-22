@@ -137,10 +137,10 @@ var _ = Describe("CloudflareRecord Controller", func() {
 			if err == nil {
 				// Remove finalizers first to allow deletion
 				resource.SetFinalizers([]string{})
-				k8sClient.Update(ctx, resource)
+				_ = k8sClient.Update(ctx, resource)
 
 				// Now delete the resource
-				k8sClient.Delete(ctx, resource)
+				_ = k8sClient.Delete(ctx, resource)
 
 				// Wait for deletion to complete with shorter timeout
 				Eventually(func() bool {
@@ -237,7 +237,7 @@ var _ = Describe("CloudflareRecord Controller", func() {
 				resource := &dnsv1.CloudflareRecord{}
 				err := k8sClient.Get(ctx, namespacedName, resource)
 				if err == nil {
-					k8sClient.Delete(ctx, resource)
+					_ = k8sClient.Delete(ctx, resource)
 				}
 			}
 			cleanup = nil
@@ -354,7 +354,7 @@ var _ = Describe("CloudflareRecord Controller", func() {
 			}
 
 			By("Testing updateStatus function directly")
-			controllerReconciler.updateStatus(ctx, testRecord, true, dnsv1.ConditionReasonRecordCreated, "Test message")
+			controllerReconciler.updateStatus(testRecord, true, dnsv1.ConditionReasonRecordCreated, "Test message")
 
 			Expect(testRecord.Status.Ready).To(BeTrue())
 			Expect(testRecord.Status.Conditions).To(HaveLen(1))
@@ -382,11 +382,11 @@ var _ = Describe("CloudflareRecord Controller", func() {
 			}
 
 			By("Setting initial condition")
-			controllerReconciler.updateStatus(ctx, testRecord, false, dnsv1.ConditionReasonRecordError, "Initial message")
+			controllerReconciler.updateStatus(testRecord, false, dnsv1.ConditionReasonRecordError, "Initial message")
 			Expect(testRecord.Status.Conditions).To(HaveLen(1))
 
 			By("Updating the same condition type")
-			controllerReconciler.updateStatus(ctx, testRecord, true, dnsv1.ConditionReasonRecordCreated, "Updated message")
+			controllerReconciler.updateStatus(testRecord, true, dnsv1.ConditionReasonRecordCreated, "Updated message")
 			Expect(testRecord.Status.Conditions).To(HaveLen(1))
 			Expect(testRecord.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
 			Expect(testRecord.Status.Conditions[0].Message).To(Equal("Updated message"))
@@ -410,12 +410,12 @@ var _ = Describe("CloudflareRecord Controller", func() {
 			}
 
 			By("Setting initial condition")
-			controllerReconciler.updateStatus(ctx, testRecord, true, dnsv1.ConditionReasonRecordCreated, "Test message")
+			controllerReconciler.updateStatus(testRecord, true, dnsv1.ConditionReasonRecordCreated, "Test message")
 			originalTime := testRecord.Status.Conditions[0].LastTransitionTime
 
 			By("Attempting to update with same status and reason")
 			time.Sleep(time.Millisecond * 10) // Ensure time difference would be visible
-			controllerReconciler.updateStatus(ctx, testRecord, true, dnsv1.ConditionReasonRecordCreated, "Test message")
+			controllerReconciler.updateStatus(testRecord, true, dnsv1.ConditionReasonRecordCreated, "Test message")
 
 			Expect(testRecord.Status.Conditions[0].LastTransitionTime).To(Equal(originalTime))
 		})
@@ -462,8 +462,8 @@ var _ = Describe("CloudflareRecord Controller", func() {
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			if err == nil {
 				resource.SetFinalizers([]string{})
-				k8sClient.Update(ctx, resource)
-				k8sClient.Delete(ctx, resource)
+				_ = k8sClient.Update(ctx, resource)
+				_ = k8sClient.Delete(ctx, resource)
 			}
 		})
 
@@ -573,8 +573,8 @@ var _ = Describe("CloudflareRecord Controller", func() {
 				resource := &dnsv1.CloudflareRecord{}
 				if err := k8sClient.Get(ctx, namespacedName, resource); err == nil {
 					resource.SetFinalizers([]string{})
-					k8sClient.Update(ctx, resource)
-					k8sClient.Delete(ctx, resource)
+					_ = k8sClient.Update(ctx, resource)
+					_ = k8sClient.Delete(ctx, resource)
 				}
 			}()
 
@@ -641,7 +641,7 @@ var _ = Describe("CloudflareRecord Controller", func() {
 
 			By("Testing updateStatus method directly to achieve coverage")
 			// This will test the updateStatus method directly
-			testController.updateStatus(ctx, testRecord, true, dnsv1.ConditionReasonRecordCreated, "Test message")
+			testController.updateStatus(testRecord, true, dnsv1.ConditionReasonRecordCreated, "Test message")
 
 			// Verify the status was updated in memory
 			Expect(testRecord.Status.Ready).To(BeTrue())
@@ -687,7 +687,7 @@ var _ = Describe("CloudflareRecord Controller", func() {
 			testRecord := &dnsv1.CloudflareRecord{}
 
 			// Test updateStatus with false condition
-			testController.updateStatus(ctx, testRecord, false, dnsv1.ConditionReasonRecordError, "Error message")
+			testController.updateStatus(testRecord, false, dnsv1.ConditionReasonRecordError, "Error message")
 			Expect(testRecord.Status.Ready).To(BeFalse())
 		})
 
