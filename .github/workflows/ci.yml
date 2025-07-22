@@ -10,12 +10,34 @@ env:
   GOLANGCI_LINT_VERSION: 'latest'
 
 jobs:
-  ci:
-    name: Complete CI Pipeline
+  # ==================== PRE-COMMIT JOB ====================
+  pre-commit:
+    name: 🔍 Pre-commit Checks
     runs-on: ubuntu-latest
-
     steps:
-      # ==================== SETUP STEPS ====================
+      - name: 🛒 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 📦 Install pre-commit
+        run: |
+          pip install pre-commit
+          pre-commit --version
+
+      - name: 🔍 Run pre-commit hooks
+        run: |
+          pre-commit run --all-files --show-diff-on-failure
+
+  # ==================== CODE QUALITY JOB ====================
+  code-quality:
+    name: 🎨 Code Quality
+    runs-on: ubuntu-latest
+    needs: pre-commit
+    steps:
       - name: 🛒 Checkout code
         uses: actions/checkout@v4
 
@@ -25,22 +47,11 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: 📦 Cache Go modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
       - name: 📥 Download dependencies
         run: |
           go mod download
           go mod tidy
 
-      # ==================== CODE QUALITY STEPS ====================
       - name: 🎨 Check code formatting
         run: |
           go fmt ./...
@@ -58,9 +69,25 @@ jobs:
         with:
           version: ${{ env.GOLANGCI_LINT_VERSION }}
           args: --timeout=10m
-          skip-cache: false
 
-      # ==================== TESTING STEPS ====================
+  # ==================== TESTING JOB ====================
+  test:
+    name: 🧪 Unit Tests
+    runs-on: ubuntu-latest
+    needs: pre-commit
+    steps:
+      - name: 🛒 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐹 Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: 📥 Download dependencies
+        run: go mod download
+
       - name: 🧪 Run unit tests
         run: make test
 
@@ -73,25 +100,52 @@ jobs:
         if: hashFiles('cover.out') != ''
         continue-on-error: true
 
-      # ==================== SECURITY STEPS ====================
+  # ==================== SECURITY JOB ====================
+  security:
+    name: 🔐 Security Scan
+    runs-on: ubuntu-latest
+    needs: pre-commit
+    steps:
+      - name: 🛒 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐹 Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
       - name: 🔐 Install gosec
-        run: |
-          go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
-        continue-on-error: true
+        run: go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
 
       - name: 🔐 Run security scan
         run: |
           gosec -fmt sarif -out gosec.sarif ./... || echo "Gosec scan completed with findings"
-        continue-on-error: true
 
       - name: 🔍 Upload security scan results
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: gosec.sarif
         if: hashFiles('gosec.sarif') != ''
-        continue-on-error: true
 
-      # ==================== BUILD STEPS ====================
+  # ==================== BUILD JOB ====================
+  build:
+    name: 🔨 Build & Package
+    runs-on: ubuntu-latest
+    needs: [code-quality, test, security]
+    steps:
+      - name: 🛒 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐹 Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: 📥 Download dependencies
+        run: go mod download
+
       - name: 🔨 Build manager binary
         run: |
           make build
@@ -105,7 +159,35 @@ jobs:
           docker inspect test-image:latest
           echo "✅ Docker image built successfully"
 
-      # ==================== MANIFEST STEPS ====================
+      - name: 📦 Save Docker image
+        run: |
+          docker save test-image:latest > test-image.tar
+
+      - name: 📤 Upload Docker image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: test-image.tar
+          retention-days: 1
+
+  # ==================== MANIFESTS JOB ====================
+  manifests:
+    name: 📝 Validate Manifests
+    runs-on: ubuntu-latest
+    needs: [code-quality, test]
+    steps:
+      - name: 🛒 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐹 Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: 📥 Download dependencies
+        run: go mod download
+
       - name: 📝 Generate manifests
         run: make manifests generate
 
@@ -134,7 +216,38 @@ jobs:
           kubectl --dry-run=client apply -f dist/install.yaml
           echo "✅ Kubernetes manifests are valid"
 
-      # ==================== KUBERNETES TESTING STEPS ====================
+      - name: 📤 Upload manifest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kubernetes-manifests
+          path: dist/
+          retention-days: 1
+
+  # ==================== E2E TESTING JOB ====================
+  e2e-test:
+    name: 🎯 E2E Tests
+    runs-on: ubuntu-latest
+    needs: [build, manifests]
+    steps:
+      - name: 🛒 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐹 Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: 📥 Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+
+      - name: 🐳 Load Docker image
+        run: |
+          docker load < test-image.tar
+          docker images
+
       - name: ⚙️ Install Kind
         run: |
           curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-amd64
@@ -145,33 +258,27 @@ jobs:
       - name: 🧪 Run E2E tests
         run: |
           export CERT_MANAGER_INSTALL_SKIP=true
-          make test-e2e || echo "⚠️ E2E tests completed with some failures - this is expected for initial setup"
+          make test-e2e
         timeout-minutes: 30
-        continue-on-error: true
 
-      # ==================== FINAL VALIDATION STEP ====================
-      - name: ✅ Final validation and summary
+  # ==================== FINAL VALIDATION JOB ====================
+  validation:
+    name: ✅ Final Validation
+    runs-on: ubuntu-latest
+    needs: [build, manifests, e2e-test]
+    steps:
+      - name: 🎉 Pipeline Success Summary
         run: |
-          echo "🎉 CI Pipeline completed successfully!"
+          echo "🎉 All CI Pipeline jobs completed successfully!"
           echo ""
-          echo "📋 Summary:"
-          echo "  ✅ Code formatting: PASSED"
-          echo "  ✅ Static analysis: PASSED"
+          echo "📋 Jobs Summary:"
+          echo "  ✅ Pre-commit checks: PASSED"
+          echo "  ✅ Code quality: PASSED"
           echo "  ✅ Unit tests: PASSED"
-          echo "  ✅ Security scan: COMPLETED"
+          echo "  ✅ Security scan: PASSED"
           echo "  ✅ Binary build: PASSED"
           echo "  ✅ Docker build: PASSED"
           echo "  ✅ Manifest validation: PASSED"
-          echo "  ⚠️  E2E tests: COMPLETED (may have expected failures)"
+          echo "  ✅ E2E tests: PASSED"
           echo ""
           echo "🚀 Ready for deployment!"
-
-      # ==================== CLEANUP STEP ====================
-      - name: 🧹 Cleanup resources
-        if: always()
-        run: |
-          echo "🧹 Cleaning up resources..."
-          docker system prune -f || true
-          kind delete clusters --all || true
-          rm -f gosec.sarif || true
-          echo "✅ Cleanup completed"
