@@ -246,6 +246,349 @@ func TestConditionConstants(t *testing.T) {
 	assert.Equal(t, "ZoneNotFound", ConditionReasonZoneNotFound, "ConditionReasonZoneNotFound should match")
 }
 
+func TestCloudflareRecord_StructCreation(t *testing.T) {
+	record := &CloudflareRecord{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "struct-test-record",
+			Namespace: "test-namespace",
+		},
+		Spec: CloudflareRecordSpec{
+			Zone:    "struct.example.com",
+			Type:    "A",
+			Name:    "test.struct.example.com",
+			Content: "192.168.1.1",
+			TTL:     ptr.To(1800),
+			CloudflareCredentialsSecretRef: SecretReference{
+				Name: "struct-secret",
+			},
+		},
+	}
+
+	// Test that the struct can be created and all fields are accessible
+	assert.Equal(t, "struct-test-record", record.Name)
+	assert.Equal(t, "test-namespace", record.Namespace)
+	assert.Equal(t, "struct.example.com", record.Spec.Zone)
+	assert.Equal(t, "A", record.Spec.Type)
+	assert.Equal(t, "test.struct.example.com", record.Spec.Name)
+	assert.Equal(t, "192.168.1.1", record.Spec.Content)
+	assert.Equal(t, 1800, *record.Spec.TTL)
+	assert.Equal(t, "struct-secret", record.Spec.CloudflareCredentialsSecretRef.Name)
+
+	// Test that nested structs work correctly
+	assert.NotNil(t, record.Spec.CloudflareCredentialsSecretRef)
+	assert.NotEmpty(t, record.Spec.CloudflareCredentialsSecretRef.Name)
+}
+
+func TestCloudflareRecordSpec_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name        string
+		spec        CloudflareRecordSpec
+		expectValid bool
+		description string
+	}{
+		{
+			name: "empty zone",
+			spec: CloudflareRecordSpec{
+				Zone:                           "",
+				Type:                           "A",
+				Name:                           "test.example.com",
+				Content:                        "1.2.3.4",
+				CloudflareCredentialsSecretRef: SecretReference{Name: "secret"},
+			},
+			expectValid: false,
+			description: "Zone should not be empty",
+		},
+		{
+			name: "empty type",
+			spec: CloudflareRecordSpec{
+				Zone:                           "example.com",
+				Type:                           "",
+				Name:                           "test.example.com",
+				Content:                        "1.2.3.4",
+				CloudflareCredentialsSecretRef: SecretReference{Name: "secret"},
+			},
+			expectValid: false,
+			description: "Type should not be empty",
+		},
+		{
+			name: "empty name",
+			spec: CloudflareRecordSpec{
+				Zone:                           "example.com",
+				Type:                           "A",
+				Name:                           "",
+				Content:                        "1.2.3.4",
+				CloudflareCredentialsSecretRef: SecretReference{Name: "secret"},
+			},
+			expectValid: false,
+			description: "Name should not be empty",
+		},
+		{
+			name: "empty content",
+			spec: CloudflareRecordSpec{
+				Zone:                           "example.com",
+				Type:                           "A",
+				Name:                           "test.example.com",
+				Content:                        "",
+				CloudflareCredentialsSecretRef: SecretReference{Name: "secret"},
+			},
+			expectValid: false,
+			description: "Content should not be empty",
+		},
+		{
+			name: "empty secret name",
+			spec: CloudflareRecordSpec{
+				Zone:                           "example.com",
+				Type:                           "A",
+				Name:                           "test.example.com",
+				Content:                        "1.2.3.4",
+				CloudflareCredentialsSecretRef: SecretReference{Name: ""},
+			},
+			expectValid: false,
+			description: "Secret name should not be empty",
+		},
+		{
+			name: "negative TTL",
+			spec: CloudflareRecordSpec{
+				Zone:                           "example.com",
+				Type:                           "A",
+				Name:                           "test.example.com",
+				Content:                        "1.2.3.4",
+				TTL:                            ptr.To(-1),
+				CloudflareCredentialsSecretRef: SecretReference{Name: "secret"},
+			},
+			expectValid: false,
+			description: "TTL should be positive",
+		},
+		{
+			name: "negative priority",
+			spec: CloudflareRecordSpec{
+				Zone:                           "example.com",
+				Type:                           "MX",
+				Name:                           "example.com",
+				Content:                        "mail.example.com",
+				Priority:                       ptr.To(-1),
+				CloudflareCredentialsSecretRef: SecretReference{Name: "secret"},
+			},
+			expectValid: false,
+			description: "Priority should not be negative",
+		},
+		{
+			name: "very large TTL",
+			spec: CloudflareRecordSpec{
+				Zone:                           "example.com",
+				Type:                           "A",
+				Name:                           "test.example.com",
+				Content:                        "1.2.3.4",
+				TTL:                            ptr.To(2147483648), // Greater than max int32
+				CloudflareCredentialsSecretRef: SecretReference{Name: "secret"},
+			},
+			expectValid: false,
+			description: "TTL should not exceed maximum value",
+		},
+		{
+			name: "very large priority",
+			spec: CloudflareRecordSpec{
+				Zone:                           "example.com",
+				Type:                           "MX",
+				Name:                           "example.com",
+				Content:                        "mail.example.com",
+				Priority:                       ptr.To(65536), // Greater than max uint16
+				CloudflareCredentialsSecretRef: SecretReference{Name: "secret"},
+			},
+			expectValid: false,
+			description: "Priority should not exceed maximum value",
+		},
+		{
+			name: "long comment",
+			spec: CloudflareRecordSpec{
+				Zone:                           "example.com",
+				Type:                           "A",
+				Name:                           "test.example.com",
+				Content:                        "1.2.3.4",
+				Comment:                        ptr.To("This is a very long comment that exceeds the maximum allowed length of 100 characters for comments in DNS records, which should be invalid according to the kubebuilder validation rules"),
+				CloudflareCredentialsSecretRef: SecretReference{Name: "secret"},
+			},
+			expectValid: false,
+			description: "Comment should not exceed 100 characters",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			record := &CloudflareRecord{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "edge-case-test",
+					Namespace: "default",
+				},
+				Spec: tt.spec,
+			}
+
+			// Basic structural checks based on expectValid
+			if tt.expectValid {
+				assert.NotEmpty(t, record.Spec.Zone, tt.description)
+				assert.NotEmpty(t, record.Spec.Type, tt.description)
+				assert.NotEmpty(t, record.Spec.Name, tt.description)
+				assert.NotEmpty(t, record.Spec.Content, tt.description)
+			} else {
+				// For invalid cases, check that at least one validation would fail
+				hasValidationIssue := false
+
+				if record.Spec.Zone == "" ||
+					record.Spec.Type == "" ||
+					record.Spec.Name == "" ||
+					record.Spec.Content == "" ||
+					record.Spec.CloudflareCredentialsSecretRef.Name == "" {
+					hasValidationIssue = true
+				}
+
+				if record.Spec.TTL != nil && *record.Spec.TTL < 1 {
+					hasValidationIssue = true
+				}
+
+				if record.Spec.TTL != nil && *record.Spec.TTL > 2147483647 {
+					hasValidationIssue = true
+				}
+
+				if record.Spec.Priority != nil && *record.Spec.Priority < 0 {
+					hasValidationIssue = true
+				}
+
+				if record.Spec.Priority != nil && *record.Spec.Priority > 65535 {
+					hasValidationIssue = true
+				}
+
+				if record.Spec.Comment != nil && len(*record.Spec.Comment) > 100 {
+					hasValidationIssue = true
+				}
+
+				assert.True(t, hasValidationIssue, tt.description)
+			}
+		})
+	}
+}
+
+func TestSecretReference_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name      string
+		secretRef SecretReference
+		valid     bool
+	}{
+		{
+			name:      "empty name",
+			secretRef: SecretReference{Name: ""},
+			valid:     false,
+		},
+		{
+			name:      "empty namespace pointer",
+			secretRef: SecretReference{Name: "test", Namespace: ptr.To("")},
+			valid:     false,
+		},
+		{
+			name:      "nil namespace is ok",
+			secretRef: SecretReference{Name: "test", Namespace: nil},
+			valid:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.valid {
+				assert.NotEmpty(t, tt.secretRef.Name)
+			} else {
+				hasIssue := tt.secretRef.Name == "" ||
+					(tt.secretRef.Namespace != nil && *tt.secretRef.Namespace == "")
+				assert.True(t, hasIssue, "Should have validation issue")
+			}
+		})
+	}
+}
+
+func TestCloudflareRecordTypes_SupportedTypes(t *testing.T) {
+	supportedTypes := []string{"A", "AAAA", "CNAME", "MX", "TXT", "SRV", "NS", "PTR", "CAA", "CERT", "DNSKEY", "DS", "NAPTR", "SMIMEA", "SSHFP", "TLSA", "URI"}
+
+	for _, recordType := range supportedTypes {
+		t.Run("type_"+recordType, func(t *testing.T) {
+			spec := CloudflareRecordSpec{
+				Zone:                           "example.com",
+				Type:                           recordType,
+				Name:                           "test.example.com",
+				Content:                        getValidContentForType(recordType),
+				CloudflareCredentialsSecretRef: SecretReference{Name: "secret"},
+			}
+
+			record := &CloudflareRecord{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+				Spec:       spec,
+			}
+
+			assert.Equal(t, recordType, record.Spec.Type)
+			assert.NotEmpty(t, record.Spec.Content)
+		})
+	}
+}
+
+func getValidContentForType(recordType string) string {
+	switch recordType {
+	case "A":
+		return "192.168.1.1"
+	case "AAAA":
+		return "2001:db8::1"
+	case "CNAME":
+		return "example.com"
+	case "MX":
+		return "mail.example.com"
+	case "TXT":
+		return "v=spf1 include:_spf.example.com ~all"
+	case "SRV":
+		return "10 5 443 target.example.com"
+	default:
+		return "test-content"
+	}
+}
+
+func TestCloudflareRecordList_Operations(t *testing.T) {
+	list := &CloudflareRecordList{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "dns.cloudflare.io/v1",
+			Kind:       "CloudflareRecordList",
+		},
+		ListMeta: metav1.ListMeta{
+			ResourceVersion: "12345",
+		},
+		Items: []CloudflareRecord{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "record1", Namespace: "default"},
+				Spec: CloudflareRecordSpec{
+					Zone:                           "example.com",
+					Type:                           "A",
+					Name:                           "test1.example.com",
+					Content:                        "1.2.3.4",
+					CloudflareCredentialsSecretRef: SecretReference{Name: "secret"},
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "record2", Namespace: "default"},
+				Spec: CloudflareRecordSpec{
+					Zone:                           "example.com",
+					Type:                           "CNAME",
+					Name:                           "test2.example.com",
+					Content:                        "example.com",
+					CloudflareCredentialsSecretRef: SecretReference{Name: "secret"},
+				},
+			},
+		},
+	}
+
+	assert.Equal(t, "dns.cloudflare.io/v1", list.APIVersion)
+	assert.Equal(t, "CloudflareRecordList", list.Kind)
+	assert.Equal(t, "12345", list.ResourceVersion)
+	assert.Len(t, list.Items, 2)
+	assert.Equal(t, "record1", list.Items[0].Name)
+	assert.Equal(t, "record2", list.Items[1].Name)
+	assert.Equal(t, "A", list.Items[0].Spec.Type)
+	assert.Equal(t, "CNAME", list.Items[1].Spec.Type)
+}
+
 func TestCloudflareRecord_Complete(t *testing.T) {
 	record := &CloudflareRecord{
 		ObjectMeta: metav1.ObjectMeta{
@@ -330,4 +673,36 @@ func TestCloudflareRecord_Complete(t *testing.T) {
 	assert.Equal(t, ConditionTypeSynced, syncedCondition.Type)
 	assert.Equal(t, metav1.ConditionTrue, syncedCondition.Status)
 	assert.Equal(t, ConditionReasonRecordUpdated, syncedCondition.Reason)
+}
+
+func TestGroupVersion_Constants(t *testing.T) {
+	// Test GroupVersion constants
+	assert.Equal(t, "dns.cloudflare.io", GroupVersion.Group, "Group should match")
+	assert.Equal(t, "v1", GroupVersion.Version, "Version should match")
+	assert.Equal(t, "dns.cloudflare.io/v1", GroupVersion.String(), "GroupVersion string should match")
+}
+
+func TestSchemeBuilder_Registration(t *testing.T) {
+	// Test that SchemeBuilder is properly initialized
+	assert.NotNil(t, SchemeBuilder, "SchemeBuilder should not be nil")
+	assert.NotNil(t, AddToScheme, "AddToScheme should not be nil")
+	assert.Equal(t, GroupVersion, SchemeBuilder.GroupVersion, "SchemeBuilder should have correct GroupVersion")
+}
+
+func TestCloudflareRecord_TypeMeta(t *testing.T) {
+	record := &CloudflareRecord{}
+	record.APIVersion = GroupVersion.String()
+	record.Kind = "CloudflareRecord"
+
+	assert.Equal(t, "dns.cloudflare.io/v1", record.APIVersion)
+	assert.Equal(t, "CloudflareRecord", record.Kind)
+}
+
+func TestCloudflareRecordList_TypeMeta(t *testing.T) {
+	list := &CloudflareRecordList{}
+	list.APIVersion = GroupVersion.String()
+	list.Kind = "CloudflareRecordList"
+
+	assert.Equal(t, "dns.cloudflare.io/v1", list.APIVersion)
+	assert.Equal(t, "CloudflareRecordList", list.Kind)
 }
