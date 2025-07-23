@@ -7,7 +7,7 @@ repos:
         args: ['--markdown-linebreak-ext=md']
       - id: end-of-file-fixer
       - id: check-yaml
-        exclude: ^(config/.*\.yaml|dist/.*)$
+        exclude: ^(config/.*\.yaml|dist/.*|charts/.*/templates/.*)$
       - id: check-added-large-files
       - id: check-case-conflict
       - id: check-merge-conflict

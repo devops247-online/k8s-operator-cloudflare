@@ -175,11 +175,65 @@ jobs:
           path: test-image.tar
           retention-days: 1
 
+  # ==================== HELM CHARTS JOB ====================
+  helm-charts:
+    name: Validate Helm Charts
+    runs-on: ubuntu-latest
+    needs: pre-commit
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.14.0'
+
+      - name: Lint Helm Charts
+        run: |
+          for chart in charts/*/; do
+            if [ -f "$chart/Chart.yaml" ]; then
+              echo "Linting Helm chart: $chart"
+              helm lint "$chart"
+              echo "✅ Chart $chart passed lint check"
+            fi
+          done
+
+      - name: Template Helm Charts
+        run: |
+          for chart in charts/*/; do
+            if [ -f "$chart/Chart.yaml" ]; then
+              echo "Templating Helm chart: $chart"
+              helm template test "$chart" --values "$chart/values.yaml" > /dev/null
+              echo "✅ Chart $chart templated successfully"
+            fi
+          done
+
+      - name: Validate Helm Chart Values
+        run: |
+          pip3 install PyYAML
+          for chart in charts/*/; do
+            if [ -f "$chart/values.yaml" ]; then
+              echo "Validating values.yaml: $chart/values.yaml"
+              python3 -c "
+              import yaml
+              import sys
+              try:
+                  with open('$chart/values.yaml', 'r') as f:
+                      yaml.safe_load(f)
+                  print('✅ $chart/values.yaml is valid YAML')
+              except yaml.YAMLError as e:
+                  print('❌ $chart/values.yaml YAML error:', e)
+                  sys.exit(1)
+              "
+            fi
+          done
+
   # ==================== MANIFESTS JOB ====================
   manifests:
     name: Validate Manifests
     runs-on: ubuntu-latest
-    needs: [code-quality, test]
+    needs: [code-quality, test, helm-charts]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -283,7 +337,7 @@ jobs:
   e2e-test:
     name: E2E Tests
     runs-on: ubuntu-latest
-    needs: [build, manifests]
+    needs: [build, manifests, helm-charts]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
