@@ -1,5 +1,9 @@
 # Cloudflare DNS Operator
 
+[![CI Pipeline](https://github.com/devops247-online/k8s-operator-cloudflare/actions/workflows/ci.yml/badge.svg)](https://github.com/devops247-online/k8s-operator-cloudflare/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/devops247-online/k8s-operator-cloudflare/branch/main/graph/badge.svg)](https://codecov.io/gh/devops247-online/k8s-operator-cloudflare)
+[![Go Report Card](https://goreportcard.com/badge/github.com/devops247-online/k8s-operator-cloudflare)](https://goreportcard.com/report/github.com/devops247-online/k8s-operator-cloudflare)
+
 A Kubernetes operator for managing DNS records in Cloudflare using the official Cloudflare Go SDK.
 
 ## Description
