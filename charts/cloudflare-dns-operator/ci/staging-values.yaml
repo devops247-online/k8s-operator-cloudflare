@@ -1,0 +1,53 @@
+# Staging environment values for cloudflare-dns-operator.
+
+image:
+  repository: cloudflare-dns-operator
+  tag: staging
+  pullPolicy: Always
+
+replicaCount: 1
+
+resources:
+  limits:
+    cpu: 300m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 64Mi
+
+# Staging cloudflare configuration
+cloudflare:
+  email: ""
+  apiTokenSecretName: "cloudflare-staging-credentials"  # pragma: allowlist secret
+  apiTokenSecretKey: "api-token"  # pragma: allowlist secret
+
+operator:
+  logLevel: info
+  leaderElection: true
+
+# Enable monitoring
+monitoring:
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    labels:
+      environment: staging
+
+# Network policies for staging
+networkPolicy:
+  enabled: true
+
+# Security context for staging
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65532
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  fsGroup: 65532

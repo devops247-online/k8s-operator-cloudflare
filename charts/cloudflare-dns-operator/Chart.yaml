@@ -1,0 +1,18 @@
+apiVersion: v2
+name: cloudflare-dns-operator
+description: A Kubernetes operator for managing Cloudflare DNS records
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/devops247-online/k8s-operator-cloudflare
+sources:
+  - https://github.com/devops247-online/k8s-operator-cloudflare
+keywords:
+  - cloudflare
+  - dns
+  - operator
+  - kubernetes
+maintainers:
+  - name: devops247-online
+    email: devops@example.com
+icon: https://www.cloudflare.com/img/cf-facebook-card.png

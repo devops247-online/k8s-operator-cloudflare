@@ -1,0 +1,30 @@
+# Default test values for cloudflare-dns-operator.
+# Used for CI/CD testing
+
+image:
+  repository: cloudflare-dns-operator
+  tag: latest
+  pullPolicy: Always
+
+# Minimal resource configuration for testing
+resources:
+  limits:
+    cpu: 200m
+    memory: 64Mi
+  requests:
+    cpu: 50m
+    memory: 32Mi
+
+# Test configuration
+cloudflare:
+  email: "test@example.com"
+  apiToken: "test-token"
+
+operator:
+  logLevel: debug
+  leaderElection: false
+
+# Enable monitoring for tests
+monitoring:
+  serviceMonitor:
+    enabled: false

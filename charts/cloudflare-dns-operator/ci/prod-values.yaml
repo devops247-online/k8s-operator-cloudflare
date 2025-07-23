@@ -1,0 +1,81 @@
+# Production environment values for cloudflare-dns-operator.
+
+image:
+  repository: cloudflare-dns-operator
+  tag: v0.1.0
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 200m
+    memory: 128Mi
+
+# Production cloudflare configuration
+cloudflare:
+  email: ""
+  apiTokenSecretName: "cloudflare-prod-credentials"  # pragma: allowlist secret
+  apiTokenSecretKey: "api-token"  # pragma: allowlist secret
+
+operator:
+  logLevel: info
+  leaderElection: true
+
+# Production monitoring
+monitoring:
+  serviceMonitor:
+    enabled: true
+    interval: 15s
+    labels:
+      environment: production
+      team: platform
+
+# Network policies for production
+networkPolicy:
+  enabled: true
+  policyTypes:
+    - Ingress
+    - Egress
+  egress:
+    - ports:
+      - port: 443
+        protocol: TCP
+      - port: 53
+        protocol: UDP
+      - port: 53
+        protocol: TCP
+
+# High availability configuration
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - cloudflare-dns-operator
+        topologyKey: kubernetes.io/hostname
+
+# Production security context
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65532
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault

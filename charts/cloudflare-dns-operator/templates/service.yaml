@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cloudflare-dns-operator.fullname" . }}-metrics
+  labels:
+    {{- include "cloudflare-dns-operator.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.metricsPort }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+  selector:
+    {{- include "cloudflare-dns-operator.selectorLabels" . | nindent 4 }}
+{{- if .Values.operator.enableWebhook }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cloudflare-dns-operator.fullname" . }}-webhook
+  labels:
+    {{- include "cloudflare-dns-operator.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 443
+      targetPort: webhook
+      protocol: TCP
+      name: webhook
+  selector:
+    {{- include "cloudflare-dns-operator.selectorLabels" . | nindent 4 }}
+{{- end }}

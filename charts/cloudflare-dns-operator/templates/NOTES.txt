@@ -1,0 +1,25 @@
+Cloudflare DNS Operator has been installed successfully!
+
+1. Check the operator status:
+   kubectl get pods -l "app.kubernetes.io/name={{ include "cloudflare-dns-operator.name" . }}" -n {{ .Release.Namespace }}
+
+2. View the operator logs:
+   kubectl logs -l "app.kubernetes.io/name={{ include "cloudflare-dns-operator.name" . }}" -n {{ .Release.Namespace }}
+
+3. Access metrics (if monitoring is enabled):
+   kubectl port-forward service/{{ include "cloudflare-dns-operator.fullname" . }}-metrics {{ .Values.service.metricsPort }}:{{ .Values.service.metricsPort }} -n {{ .Release.Namespace }}
+   # Then visit http://127.0.0.1:{{ .Values.service.metricsPort }}/metrics
+
+4. To create a DNS record, apply a DNSRecord custom resource:
+   apiVersion: cloudflare.io/v1alpha1
+   kind: DNSRecord
+   metadata:
+     name: example-dns-record
+     namespace: {{ .Release.Namespace }}
+   spec:
+     name: example.your-domain.com
+     type: A
+     content: "192.168.1.1"
+     ttl: 300
+
+For more information, visit: https://github.com/devops247-online/k8s-operator-cloudflare
