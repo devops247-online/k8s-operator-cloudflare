@@ -1,3 +1,4 @@
+---
 # Default values for cloudflare-dns-operator.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
@@ -22,7 +23,7 @@ serviceAccount:
   # Annotations to add to the service account
   annotations: {}
   # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
+  # If not set and create is true, a name is generated using fullname template
   name: ""
 
 # RBAC configuration
@@ -42,7 +43,7 @@ securityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop:
-    - ALL
+      - ALL
   readOnlyRootFilesystem: true
   runAsNonRoot: true
   runAsUser: 65532
@@ -139,9 +140,9 @@ networkPolicy:
   ingress: []
   egress:
     - ports:
-      - port: 443
-        protocol: TCP
-      - port: 53
-        protocol: UDP
-      - port: 53
-        protocol: TCP
+        - port: 443
+          protocol: TCP
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
