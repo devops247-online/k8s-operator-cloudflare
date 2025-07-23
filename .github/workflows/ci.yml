@@ -189,6 +189,10 @@ jobs:
         with:
           version: 'v3.14.0'
 
+      - name: Install Python dependencies
+        run: |
+          pip3 install PyYAML
+
       - name: Lint Helm Charts
         run: |
           for chart in charts/*/; do
@@ -211,21 +215,21 @@ jobs:
 
       - name: Validate Helm Chart Values
         run: |
-          pip3 install PyYAML
           for chart in charts/*/; do
             if [ -f "$chart/values.yaml" ]; then
               echo "Validating values.yaml: $chart/values.yaml"
-              python3 -c "
-              import yaml
-              import sys
-              try:
-                  with open('$chart/values.yaml', 'r') as f:
-                      yaml.safe_load(f)
-                  print('✅ $chart/values.yaml is valid YAML')
-              except yaml.YAMLError as e:
-                  print('❌ $chart/values.yaml YAML error:', e)
-                  sys.exit(1)
-              "
+              # Use yamllint if available, otherwise use python yaml validation
+              if command -v yamllint >/dev/null 2>&1; then
+                yamllint "$chart/values.yaml" && echo "✅ $chart/values.yaml is valid YAML"
+              else
+                # Fallback to python yaml validation
+                if python3 -c "import yaml; yaml.safe_load(open('$chart/values.yaml'))" 2>/dev/null; then
+                  echo "✅ $chart/values.yaml is valid YAML"
+                else
+                  echo "❌ $chart/values.yaml validation failed"
+                  exit 1
+                fi
+              fi
             fi
           done
 
