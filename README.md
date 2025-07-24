@@ -278,6 +278,12 @@ Current test coverage:
 - **API types**: 100% (non-generated code)
 - **Overall**: ~15% (includes auto-generated code)
 
+**Note on API Coverage**: The API package shows low coverage (1.1%) because it primarily consists of auto-generated DeepCopy methods (`zz_generated.deepcopy.go`). These methods are:
+- Generated automatically by controller-gen
+- Tested implicitly through controller tests
+- Industry standard practice to exclude from coverage metrics
+- Regenerated on each `make generate` run
+
 Generate coverage reports:
 ```bash
 make test
