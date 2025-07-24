@@ -161,8 +161,8 @@ var _ = Describe("Pod Security Standards", func() {
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:  "test",
-							Image: "busybox:latest",
+							Name:    "test",
+							Image:   "busybox:latest",
 							Command: []string{"sleep", "3600"},
 							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: &[]int64{0}[0], // Running as root
@@ -202,14 +202,14 @@ var _ = Describe("Pod Security Standards", func() {
 					},
 					Containers: []corev1.Container{
 						{
-							Name:  "test",
-							Image: "busybox:latest",
+							Name:    "test",
+							Image:   "busybox:latest",
 							Command: []string{"sleep", "3600"},
 							SecurityContext: &corev1.SecurityContext{
 								AllowPrivilegeEscalation: &[]bool{false}[0],
 								ReadOnlyRootFilesystem:   &[]bool{true}[0],
-								RunAsNonRoot:            &[]bool{true}[0],
-								RunAsUser:               &[]int64{65532}[0],
+								RunAsNonRoot:             &[]bool{true}[0],
+								RunAsUser:                &[]int64{65532}[0],
 								Capabilities: &corev1.Capabilities{
 									Drop: []corev1.Capability{"ALL"},
 								},
