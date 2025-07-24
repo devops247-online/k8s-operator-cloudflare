@@ -1,0 +1,50 @@
+# Security-focused test configuration
+# Tests Pod Security Standards and NetworkPolicy
+
+# Pod Security Standards - enforced
+podSecurityStandards:
+  enabled: true
+  enforce: restricted
+  enforceVersion: latest
+  audit: restricted
+  auditVersion: latest
+  warn: restricted
+  warnVersion: latest
+
+# NetworkPolicy - enabled
+networkPolicy:
+  enabled: true
+  prometheusNamespace: prometheus-system
+  prometheusPodLabels:
+    app.kubernetes.io/name: prometheus
+
+# Strict security contexts
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  fsGroupChangePolicy: "OnRootMismatch"
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+# Minimal resources for testing
+resources:
+  limits:
+    cpu: 100m
+    memory: 64Mi
+  requests:
+    cpu: 10m
+    memory: 32Mi

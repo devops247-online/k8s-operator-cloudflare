@@ -237,6 +237,43 @@ jobs:
             fi
           done
 
+      - name: Test Security Configuration
+        run: |
+          for chart in charts/*/; do
+            if [ -f "$chart/Chart.yaml" ] && [ -f "$chart/ci/security-test-values.yaml" ]; then
+              echo "Testing security configuration for: $chart"
+              helm template test "$chart" --values "$chart/ci/security-test-values.yaml" > security-manifest.yaml
+
+              # Check for security contexts in deployment
+              echo "Checking security contexts..."
+              if grep -q "securityContext:" security-manifest.yaml && \
+                 grep -q "runAsNonRoot: true" security-manifest.yaml && \
+                 grep -q "allowPrivilegeEscalation: false" security-manifest.yaml && \
+                 grep -q "readOnlyRootFilesystem: true" security-manifest.yaml; then
+                echo "✅ Security contexts properly configured"
+              else
+                echo "❌ Security contexts missing or incomplete"
+                exit 1
+              fi
+
+              # Check for Pod Security Standards labels
+              if grep -q "pod-security.kubernetes.io/enforce: restricted" security-manifest.yaml; then
+                echo "✅ Pod Security Standards labels found"
+              else
+                echo "⚠️  Pod Security Standards labels not found (may be optional)"
+              fi
+
+              # Check for NetworkPolicy
+              if grep -q "kind: NetworkPolicy" security-manifest.yaml; then
+                echo "✅ NetworkPolicy found"
+              else
+                echo "⚠️  NetworkPolicy not found (may be optional)"
+              fi
+
+              rm -f security-manifest.yaml
+            fi
+          done
+
       - name: Validate Helm Chart Values
         run: |
           for chart in charts/*/; do
