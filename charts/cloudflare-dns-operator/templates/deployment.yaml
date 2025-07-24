@@ -59,6 +59,27 @@ spec:
             {{- end }}
             - name: LOG_LEVEL
               value: {{ .Values.operator.logLevel | quote }}
+            {{- if .Values.multitenancy.enabled }}
+            - name: MULTITENANCY_ENABLED
+              value: "true"
+            - name: MULTITENANCY_SCOPE
+              value: {{ .Values.multitenancy.scope | quote }}
+            {{- if eq .Values.multitenancy.scope "multi-namespace" }}
+            - name: WATCH_NAMESPACES
+              value: {{ join "," .Values.multitenancy.watchNamespaces | quote }}
+            {{- else if eq .Values.multitenancy.scope "namespace" }}
+            - name: WATCH_NAMESPACE
+              value: {{ .Release.Namespace | quote }}
+            {{- end }}
+            - name: ENFORCE_NAMESPACE_SECRETS
+              value: {{ .Values.multitenancy.validation.enforceNamespaceSecrets | quote }}
+            - name: VALIDATE_ZONE_OWNERSHIP
+              value: {{ .Values.multitenancy.validation.validateZoneOwnership | quote }}
+            {{- if .Values.multitenancy.validation.allowedZones }}
+            - name: ALLOWED_ZONES_CONFIG
+              value: {{ toJson .Values.multitenancy.validation.allowedZones | quote }}
+            {{- end }}
+            {{- end }}
           ports:
             - name: metrics
               containerPort: 8081
