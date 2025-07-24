@@ -24,11 +24,18 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
+	dnsv1 "github.com/example/cloudflare-dns-operator/api/v1"
 	"github.com/example/cloudflare-dns-operator/test/utils"
 )
 
 var (
+	// k8sClient is the Kubernetes client used in tests
+	k8sClient client.Client
+
 	// Optional Environment Variables:
 	// - CERT_MANAGER_INSTALL_SKIP=true: Skips CertManager installation during test setup.
 	// These variables are useful if CertManager is already installed, avoiding
@@ -53,9 +60,20 @@ func TestE2E(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
+	// Setup k8s client
+	By("setting up k8s client")
+	cfg, err := config.GetConfig()
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to get kubeconfig")
+
+	err = dnsv1.AddToScheme(scheme.Scheme)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to add DNS scheme")
+
+	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to create k8s client")
+
 	By("building the manager(Operator) image")
 	cmd := exec.Command("make", "docker-build", fmt.Sprintf("IMG=%s", projectImage))
-	_, err := utils.Run(cmd)
+	_, err = utils.Run(cmd)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to build the manager(Operator) image")
 
 	// TODO(user): If you want to change the e2e test vendor from Kind, ensure the image is

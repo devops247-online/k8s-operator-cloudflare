@@ -34,11 +34,19 @@ rbac:
 podAnnotations: {}
 podLabels: {}
 
+# Pod Security Context
+# Compliant with Pod Security Standards "restricted" profile
 podSecurityContext:
   runAsNonRoot: true
   runAsUser: 65532
+  runAsGroup: 65532
   fsGroup: 65532
+  fsGroupChangePolicy: "OnRootMismatch"
+  seccompProfile:
+    type: RuntimeDefault
 
+# Container Security Context
+# Compliant with Pod Security Standards "restricted" profile
 securityContext:
   allowPrivilegeEscalation: false
   capabilities:
@@ -47,6 +55,9 @@ securityContext:
   readOnlyRootFilesystem: true
   runAsNonRoot: true
   runAsUser: 65532
+  runAsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
 
 service:
   type: ClusterIP
@@ -119,6 +130,32 @@ crds:
   # Keep CRDs on chart uninstall
   keep: true
 
+# Pod Security Standards configuration
+podSecurityStandards:
+  # Enable Pod Security Standards labels on namespace
+  enabled: true
+  # Create namespace with Pod Security Standards labels
+  createNamespace: false
+  # Enforce mode - blocks non-compliant pods
+  enforce: restricted
+  enforceVersion: latest
+  # Audit mode - logs policy violations
+  audit: restricted
+  auditVersion: latest
+  # Warn mode - warns about policy violations
+  warn: restricted
+  warnVersion: latest
+
+# Network Policy configuration
+networkPolicy:
+  # Enable NetworkPolicy
+  enabled: true
+  # Prometheus namespace for metrics scraping
+  prometheusNamespace: prometheus-system
+  # Prometheus pod labels
+  prometheusPodLabels:
+    app.kubernetes.io/name: prometheus
+
 # Monitoring
 monitoring:
   # Enable ServiceMonitor for Prometheus Operator
@@ -131,12 +168,6 @@ monitoring:
     metricRelabelings: []
     relabelings: []
 
-# Network policies
-networkPolicy:
-  enabled: false
-  policyTypes:
-    - Ingress
-    - Egress
   ingress: []
   egress:
     - ports:
