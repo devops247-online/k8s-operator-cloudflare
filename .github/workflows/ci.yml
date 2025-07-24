@@ -91,17 +91,41 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
-      - name: Run unit tests
+      - name: Run unit tests with coverage
         run: make test
 
-      - name: Upload coverage reports
+      - name: Generate coverage report
+        run: |
+          go tool cover -html=cover.out -o coverage.html
+          go tool cover -func=cover.out > coverage.txt
+          # Convert Go coverage to lcov format for Codecov
+          go install github.com/jandelgado/gcov2lcov@latest
+          gcov2lcov -infile=cover.out -outfile=lcov.info
+
+      - name: Display coverage summary
+        run: |
+          echo "Coverage Summary:"
+          tail -n 1 coverage.txt
+
+      - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
-          file: ./cover.out
-          flags: unittests
-          name: codecov-umbrella
-        if: hashFiles('cover.out') != ''
-        continue-on-error: true
+          files: lcov.info
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+        if: hashFiles('lcov.info') != ''
+
+      - name: Upload coverage artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            coverage.html
+            coverage.txt
+            cover.out
+            lcov.info
+          retention-days: 7
+        if: hashFiles('lcov.info') != ''
 
   # ==================== SECURITY JOB ====================
   security:
