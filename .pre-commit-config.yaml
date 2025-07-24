@@ -26,6 +26,16 @@ repos:
         additional_dependencies:
           - eslint@8.57.1
 
+  # Go vet for Go code analysis
+  - repo: local
+    hooks:
+      - id: go-vet
+        name: Go vet
+        entry: go vet ./...
+        language: system
+        files: \.go$
+        pass_filenames: false
+
   # Trivy security scanner (disabled for now - can be enabled later)
   # - repo: local
   #   hooks:

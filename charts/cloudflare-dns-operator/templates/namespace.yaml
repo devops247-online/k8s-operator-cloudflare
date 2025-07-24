@@ -1,0 +1,14 @@
+{{- if and .Values.podSecurityStandards.enabled .Values.podSecurityStandards.createNamespace }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Release.Namespace }}
+  labels:
+    {{- include "cloudflare-dns-operator.labels" . | nindent 4 }}
+    pod-security.kubernetes.io/enforce: {{ .Values.podSecurityStandards.enforce }}
+    pod-security.kubernetes.io/enforce-version: {{ .Values.podSecurityStandards.enforceVersion }}
+    pod-security.kubernetes.io/audit: {{ .Values.podSecurityStandards.audit }}
+    pod-security.kubernetes.io/audit-version: {{ .Values.podSecurityStandards.auditVersion }}
+    pod-security.kubernetes.io/warn: {{ .Values.podSecurityStandards.warn }}
+    pod-security.kubernetes.io/warn-version: {{ .Values.podSecurityStandards.warnVersion }}
+{{- end }}

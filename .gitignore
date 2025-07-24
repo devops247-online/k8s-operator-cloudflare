@@ -27,3 +27,4 @@ go.work
 *.swo
 *~
 dist/
+e2e-test-binary
