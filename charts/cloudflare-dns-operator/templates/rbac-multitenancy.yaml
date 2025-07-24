@@ -11,7 +11,10 @@ metadata:
 rules:
   # CloudflareRecord management
   - apiGroups: ["dns.cloudflare.io"]
-    resources: ["cloudflarerecords", "cloudflarerecords/status", "cloudflarerecords/finalizers"]
+    resources:
+      - "cloudflarerecords"
+      - "cloudflarerecords/status"
+      - "cloudflarerecords/finalizers"
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   # Secrets access (for credential validation)
   - apiGroups: [""]
@@ -61,7 +64,10 @@ metadata:
 rules:
   # CloudflareRecord management in this namespace only
   - apiGroups: ["dns.cloudflare.io"]
-    resources: ["cloudflarerecords", "cloudflarerecords/status", "cloudflarerecords/finalizers"]
+    resources:
+      - "cloudflarerecords"
+      - "cloudflarerecords/status"
+      - "cloudflarerecords/finalizers"
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   # Secrets access in this namespace only
   - apiGroups: [""]
@@ -107,7 +113,10 @@ metadata:
 rules:
   # CloudflareRecord management
   - apiGroups: ["dns.cloudflare.io"]
-    resources: ["cloudflarerecords", "cloudflarerecords/status", "cloudflarerecords/finalizers"]
+    resources:
+      - "cloudflarerecords"
+      - "cloudflarerecords/status"
+      - "cloudflarerecords/finalizers"
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   # Secrets access (limited by namespace in controller logic)
   - apiGroups: [""]
@@ -158,7 +167,10 @@ metadata:
 rules:
   # CloudflareRecord management in this tenant namespace
   - apiGroups: ["dns.cloudflare.io"]
-    resources: ["cloudflarerecords", "cloudflarerecords/status", "cloudflarerecords/finalizers"]
+    resources:
+      - "cloudflarerecords"
+      - "cloudflarerecords/status"
+      - "cloudflarerecords/finalizers"
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   # Secrets access in this namespace only
   - apiGroups: [""]

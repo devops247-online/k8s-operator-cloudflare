@@ -1,4 +1,5 @@
-{{- if and .Values.multitenancy.enabled .Values.multitenancy.resourceQuotas.enabled -}}
+{{- if and .Values.multitenancy.enabled
+          .Values.multitenancy.resourceQuotas.enabled -}}
 {{- if ne .Values.multitenancy.scope "cluster" -}}
 ---
 # ResourceQuota for the operator namespace (namespace/multi-namespace scope)
@@ -13,7 +14,8 @@ metadata:
 spec:
   hard:
     # Limit CloudflareRecord resources
-    count/cloudflarerecords.dns.cloudflare.io: "{{ .Values.multitenancy.resourceQuotas.limits.maxRecords }}"
+    count/cloudflarerecords.dns.cloudflare.io: >-
+      {{ .Values.multitenancy.resourceQuotas.limits.maxRecords | quote }}
     # Standard resource limits
     limits.cpu: "{{ .Values.multitenancy.resourceQuotas.limits.cpu }}"
     limits.memory: "{{ .Values.multitenancy.resourceQuotas.limits.memory }}"
@@ -36,7 +38,8 @@ metadata:
 spec:
   hard:
     # Limit CloudflareRecord resources per tenant
-    count/cloudflarerecords.dns.cloudflare.io: "{{ $.Values.multitenancy.resourceQuotas.limits.maxRecords }}"
+    count/cloudflarerecords.dns.cloudflare.io: >-
+      {{ $.Values.multitenancy.resourceQuotas.limits.maxRecords | quote }}
     # Standard resource limits per tenant
     limits.cpu: "{{ $.Values.multitenancy.resourceQuotas.limits.cpu }}"
     limits.memory: "{{ $.Values.multitenancy.resourceQuotas.limits.memory }}"

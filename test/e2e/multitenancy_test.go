@@ -40,7 +40,7 @@ var _ = Describe("Multi-tenancy Features", func() {
 					Name: fmt.Sprintf("%s-ns-scoped", testNamespacePrefix),
 					Labels: map[string]string{
 						"app.kubernetes.io/managed-by": "cloudflare-dns-operator",
-						"multitenancy.scope":            "namespace",
+						"multitenancy.scope":           "namespace",
 					},
 				},
 			}
@@ -106,8 +106,8 @@ var _ = Describe("Multi-tenancy Features", func() {
 				Spec: corev1.ResourceQuotaSpec{
 					Hard: corev1.ResourceList{
 						"count/cloudflarerecords.dns.cloudflare.io": resource.MustParse("50"),
-						"limits.cpu":                                resource.MustParse("500m"),
-						"limits.memory":                             resource.MustParse("256Mi"),
+						"limits.cpu":    resource.MustParse("500m"),
+						"limits.memory": resource.MustParse("256Mi"),
 					},
 				},
 			}
@@ -144,8 +144,8 @@ var _ = Describe("Multi-tenancy Features", func() {
 						Name: fmt.Sprintf("%s-%s", testNamespacePrefix, tenantName),
 						Labels: map[string]string{
 							"app.kubernetes.io/managed-by": "cloudflare-dns-operator",
-							"multitenancy.scope":            "multi-namespace",
-							"tenant":                        tenantName,
+							"multitenancy.scope":           "multi-namespace",
+							"tenant":                       tenantName,
 						},
 					},
 				}
@@ -178,8 +178,8 @@ var _ = Describe("Multi-tenancy Features", func() {
 					Spec: corev1.ResourceQuotaSpec{
 						Hard: corev1.ResourceList{
 							"count/cloudflarerecords.dns.cloudflare.io": resource.MustParse("25"),
-							"limits.cpu":                                resource.MustParse("250m"),
-							"limits.memory":                             resource.MustParse("128Mi"),
+							"limits.cpu":    resource.MustParse("250m"),
+							"limits.memory": resource.MustParse("128Mi"),
 						},
 					},
 				}

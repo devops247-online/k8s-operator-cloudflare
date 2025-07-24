@@ -201,7 +201,7 @@ multitenancy:
     limits:
       # Maximum number of CloudflareRecord resources per namespace
       maxRecords: 100
-      # CPU and memory limits for tenant workloads (if creating tenant workloads)
+      # CPU and memory limits for tenant workloads
       cpu: "1000m"
       memory: "512Mi"
 

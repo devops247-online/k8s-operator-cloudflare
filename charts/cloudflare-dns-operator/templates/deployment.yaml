@@ -25,21 +25,24 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "cloudflare-dns-operator.serviceAccountName" . }}
+      serviceAccountName: >-
+        {{ include "cloudflare-dns-operator.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          image: >-
+            {{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
             - /manager
           args:
             - --leader-elect={{ .Values.operator.leaderElection }}
             - --metrics-bind-address={{ .Values.operator.metricsBindAddress }}
-            - --health-probe-bind-address={{ .Values.operator.healthProbeBindAddress }}
+            - >-
+              --health-probe-bind-address={{ .Values.operator.healthProbeBindAddress }}
           env:
             - name: CLOUDFLARE_EMAIL
               value: {{ .Values.cloudflare.email | quote }}
@@ -72,12 +75,15 @@ spec:
               value: {{ .Release.Namespace | quote }}
             {{- end }}
             - name: ENFORCE_NAMESPACE_SECRETS
-              value: {{ .Values.multitenancy.validation.enforceNamespaceSecrets | quote }}
+              value: >-
+                {{ .Values.multitenancy.validation.enforceNamespaceSecrets | quote }}
             - name: VALIDATE_ZONE_OWNERSHIP
-              value: {{ .Values.multitenancy.validation.validateZoneOwnership | quote }}
+              value: >-
+                {{ .Values.multitenancy.validation.validateZoneOwnership | quote }}
             {{- if .Values.multitenancy.validation.allowedZones }}
             - name: ALLOWED_ZONES_CONFIG
-              value: {{ toJson .Values.multitenancy.validation.allowedZones | quote }}
+              value: >-
+                {{ toJson .Values.multitenancy.validation.allowedZones | quote }}
             {{- end }}
             {{- end }}
           ports:
