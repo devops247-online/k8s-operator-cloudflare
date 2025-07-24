@@ -1,0 +1,25 @@
+# Test configuration for CRD installation disabled
+crds:
+  install: false
+  keep: false
+
+# Basic operator configuration for testing
+replicaCount: 1
+
+image:
+  repository: cloudflare-dns-operator
+  tag: "test"
+
+serviceAccount:
+  create: true
+
+rbac:
+  create: true
+
+operator:
+  logLevel: info
+  leaderElection: true
+
+cloudflare:
+  email: "test@example.com"
+  apiToken: "test-token"
