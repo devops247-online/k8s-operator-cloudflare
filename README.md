@@ -1,6 +1,7 @@
 # Cloudflare DNS Operator
 
 [![CI Pipeline](https://github.com/devops247-online/k8s-operator-cloudflare/actions/workflows/ci.yml/badge.svg)](https://github.com/devops247-online/k8s-operator-cloudflare/actions/workflows/ci.yml)
+[![GoSecScan](https://img.shields.io/github/actions/workflow/status/devops247-online/k8s-operator-cloudflare/ci.yml?label=gosec&logo=security&logoColor=white)](https://github.com/devops247-online/k8s-operator-cloudflare/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/devops247-online/k8s-operator-cloudflare/branch/main/graph/badge.svg)](https://codecov.io/gh/devops247-online/k8s-operator-cloudflare)
 [![Go Report Card](https://goreportcard.com/badge/github.com/devops247-online/k8s-operator-cloudflare)](https://goreportcard.com/report/github.com/devops247-online/k8s-operator-cloudflare)
 
@@ -276,6 +277,12 @@ Current test coverage:
 - **Controller logic**: 100%
 - **API types**: 100% (non-generated code)
 - **Overall**: ~15% (includes auto-generated code)
+
+**Note on API Coverage**: The API package shows low coverage (1.1%) because it primarily consists of auto-generated DeepCopy methods (`zz_generated.deepcopy.go`). These methods are:
+- Generated automatically by controller-gen
+- Tested implicitly through controller tests
+- Industry standard practice to exclude from coverage metrics
+- Regenerated on each `make generate` run
 
 Generate coverage reports:
 ```bash

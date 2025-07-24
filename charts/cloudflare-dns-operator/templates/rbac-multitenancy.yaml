@@ -1,0 +1,204 @@
+{{- if and .Values.rbac.create .Values.multitenancy.enabled -}}
+{{- if eq .Values.multitenancy.scope "cluster" -}}
+---
+# Cluster-wide RBAC for multi-tenancy with cluster scope
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "cloudflare-dns-operator.fullname" . }}-multitenancy
+  labels:
+    {{- include "cloudflare-dns-operator.labels" . | nindent 4 }}
+rules:
+  # CloudflareRecord management
+  - apiGroups: ["dns.cloudflare.io"]
+    resources:
+      - "cloudflarerecords"
+      - "cloudflarerecords/status"
+      - "cloudflarerecords/finalizers"
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Secrets access (for credential validation)
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch"]
+  # Events for status reporting
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+  # Namespace access for tenant validation
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
+  {{- if .Values.multitenancy.resourceQuotas.enabled }}
+  # ResourceQuota management
+  - apiGroups: [""]
+    resources: ["resourcequotas"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  {{- end }}
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "cloudflare-dns-operator.fullname" . }}-multitenancy
+  labels:
+    {{- include "cloudflare-dns-operator.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "cloudflare-dns-operator.fullname" . }}-multitenancy
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "cloudflare-dns-operator.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+
+{{- else if eq .Values.multitenancy.scope "namespace" -}}
+---
+# Namespace-scoped RBAC for single namespace tenancy
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "cloudflare-dns-operator.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cloudflare-dns-operator.labels" . | nindent 4 }}
+rules:
+  # CloudflareRecord management in this namespace only
+  - apiGroups: ["dns.cloudflare.io"]
+    resources:
+      - "cloudflarerecords"
+      - "cloudflarerecords/status"
+      - "cloudflarerecords/finalizers"
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Secrets access in this namespace only
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch"]
+  # Events for status reporting
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+  {{- if .Values.multitenancy.resourceQuotas.enabled }}
+  # ResourceQuota management in this namespace
+  - apiGroups: [""]
+    resources: ["resourcequotas"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  {{- end }}
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "cloudflare-dns-operator.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cloudflare-dns-operator.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "cloudflare-dns-operator.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "cloudflare-dns-operator.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+
+{{- else if eq .Values.multitenancy.scope "multi-namespace" -}}
+---
+# Multi-namespace RBAC - ClusterRole with limited scope
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "cloudflare-dns-operator.fullname" . }}-multitenancy
+  labels:
+    {{- include "cloudflare-dns-operator.labels" . | nindent 4 }}
+rules:
+  # CloudflareRecord management
+  - apiGroups: ["dns.cloudflare.io"]
+    resources:
+      - "cloudflarerecords"
+      - "cloudflarerecords/status"
+      - "cloudflarerecords/finalizers"
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Secrets access (limited by namespace in controller logic)
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch"]
+  # Events for status reporting
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+  # Namespace access for tenant validation
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
+  {{- if .Values.multitenancy.resourceQuotas.enabled }}
+  # ResourceQuota management
+  - apiGroups: [""]
+    resources: ["resourcequotas"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  {{- end }}
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "cloudflare-dns-operator.fullname" . }}-multitenancy
+  labels:
+    {{- include "cloudflare-dns-operator.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "cloudflare-dns-operator.fullname" . }}-multitenancy
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "cloudflare-dns-operator.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+
+{{- range .Values.multitenancy.watchNamespaces }}
+---
+# Additional Role per watched namespace for fine-grained control
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "cloudflare-dns-operator.fullname" $ }}-tenant
+  namespace: {{ . }}
+  labels:
+    {{- include "cloudflare-dns-operator.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: tenant-rbac
+rules:
+  # CloudflareRecord management in this tenant namespace
+  - apiGroups: ["dns.cloudflare.io"]
+    resources:
+      - "cloudflarerecords"
+      - "cloudflarerecords/status"
+      - "cloudflarerecords/finalizers"
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Secrets access in this namespace only
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch"]
+  # Events for status reporting
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "cloudflare-dns-operator.fullname" $ }}-tenant
+  namespace: {{ . }}
+  labels:
+    {{- include "cloudflare-dns-operator.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: tenant-rbac
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "cloudflare-dns-operator.fullname" $ }}-tenant
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "cloudflare-dns-operator.serviceAccountName" $ }}
+    namespace: {{ $.Release.Namespace }}
+{{- end }}
+
+{{- end }}
+{{- end }}
