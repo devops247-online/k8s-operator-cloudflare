@@ -1,0 +1,36 @@
+# CI values for testing multi-namespace multi-tenancy
+multitenancy:
+  enabled: true
+  scope: multi-namespace
+  watchNamespaces:
+    - tenant-a
+    - tenant-b
+    - tenant-c
+  validation:
+    enforceNamespaceSecrets: true
+    validateZoneOwnership: true
+    allowedZones:
+      tenant-a: ["customer-a.com", "*.dev.customer-a.com"]
+      tenant-b: ["customer-b.org", "api.customer-b.org"]
+      tenant-c: ["customer-c.net"]
+  resourceQuotas:
+    enabled: true
+    limits:
+      maxRecords: 25
+      cpu: "250m"
+      memory: "128Mi"
+  networkPolicies:
+    enabled: true
+
+# Test configuration
+cloudflare:
+  email: "test@example.com"
+  apiToken: "test-token"
+
+operator:
+  logLevel: debug
+  leaderElection: false
+
+# Disable features not needed for testing
+podSecurityStandards:
+  enabled: false

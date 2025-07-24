@@ -26,15 +26,27 @@ repos:
         additional_dependencies:
           - eslint@8.57.1
 
-  # Go vet for Go code analysis
+  # Go code quality checks
   - repo: local
     hooks:
+      - id: go-fmt
+        name: Go fmt
+        entry: gofmt -w
+        language: system
+        files: \.go$
       - id: go-vet
         name: Go vet
         entry: go vet ./...
         language: system
         files: \.go$
         pass_filenames: false
+      - id: gosec
+        name: Go security scan
+        entry: bash
+        language: system
+        files: \.go$
+        pass_filenames: false
+        args: ['-c', 'if command -v gosec >/dev/null 2>&1; then echo "Running gosec security scan..." && gosec -fmt=text ./...; else echo "⚠️  gosec not installed. Install with: curl -sfL https://raw.githubusercontent.com/securecodewarrior/gosec/master/install.sh | sh -s"; fi']
 
   # Trivy security scanner (disabled for now - can be enabled later)
   # - repo: local

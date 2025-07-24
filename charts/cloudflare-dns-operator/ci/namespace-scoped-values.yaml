@@ -1,0 +1,29 @@
+# CI values for testing namespace-scoped multi-tenancy
+multitenancy:
+  enabled: true
+  scope: namespace
+  validation:
+    enforceNamespaceSecrets: true
+    validateZoneOwnership: false
+  resourceQuotas:
+    enabled: true
+    limits:
+      maxRecords: 50
+      cpu: "500m"
+      memory: "256Mi"
+
+# Test configuration
+cloudflare:
+  email: "test@example.com"
+  apiToken: "test-token"
+  zoneId: "test-zone-id"
+
+operator:
+  logLevel: debug
+  leaderElection: false
+
+# Disable features not needed for testing
+podSecurityStandards:
+  enabled: false
+networkPolicy:
+  enabled: false

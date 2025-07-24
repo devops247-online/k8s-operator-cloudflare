@@ -177,3 +177,43 @@ monitoring:
           protocol: UDP
         - port: 53
           protocol: TCP
+
+# Multi-tenancy configuration
+multitenancy:
+  # Enable multi-tenancy features
+  enabled: false
+
+  # Deployment scope: cluster, namespace, multi-namespace
+  scope: cluster
+
+  # Specific namespaces to watch (only for multi-namespace scope)
+  watchNamespaces: []
+
+  # Tenant isolation
+  networkPolicies:
+    # Enable network policies for tenant isolation
+    enabled: false
+
+  # Resource management per tenant
+  resourceQuotas:
+    # Enable resource quotas for tenants
+    enabled: false
+    limits:
+      # Maximum number of CloudflareRecord resources per namespace
+      maxRecords: 100
+      # CPU and memory limits for tenant workloads
+      cpu: "1000m"
+      memory: "512Mi"
+
+  # Tenant validation
+  validation:
+    # Enforce that CloudflareRecord can only use secrets from same namespace
+    enforceNamespaceSecrets: true
+    # Validate zone ownership (requires webhook)
+    validateZoneOwnership: false
+    # Allowed zone patterns per namespace (key: namespace, value: zone patterns)
+    allowedZones: {}
+    # Example:
+    # allowedZones:
+    #   tenant-a: ["customer-a.com", "*.customer-a.com"]
+    #   tenant-b: ["customer-b.org"]

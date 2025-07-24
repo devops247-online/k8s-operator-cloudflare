@@ -1,0 +1,52 @@
+{{- if and .Values.multitenancy.enabled
+          .Values.multitenancy.resourceQuotas.enabled -}}
+{{- if ne .Values.multitenancy.scope "cluster" -}}
+---
+# ResourceQuota for the operator namespace (namespace/multi-namespace scope)
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: {{ include "cloudflare-dns-operator.fullname" . }}-quota
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cloudflare-dns-operator.labels" . | nindent 4 }}
+    app.kubernetes.io/component: resource-quota
+spec:
+  hard:
+    # Limit CloudflareRecord resources
+    count/cloudflarerecords.dns.cloudflare.io: >-
+      {{ .Values.multitenancy.resourceQuotas.limits.maxRecords | quote }}
+    # Standard resource limits
+    limits.cpu: "{{ .Values.multitenancy.resourceQuotas.limits.cpu }}"
+    limits.memory: "{{ .Values.multitenancy.resourceQuotas.limits.memory }}"
+    requests.cpu: "{{ .Values.multitenancy.resourceQuotas.limits.cpu }}"
+    requests.memory: "{{ .Values.multitenancy.resourceQuotas.limits.memory }}"
+
+{{- if eq .Values.multitenancy.scope "multi-namespace" -}}
+{{- range .Values.multitenancy.watchNamespaces }}
+---
+# ResourceQuota for each watched tenant namespace
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: {{ include "cloudflare-dns-operator.fullname" $ }}-tenant-quota
+  namespace: {{ . }}
+  labels:
+    {{- include "cloudflare-dns-operator.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: tenant-quota
+    app.kubernetes.io/tenant: {{ . }}
+spec:
+  hard:
+    # Limit CloudflareRecord resources per tenant
+    count/cloudflarerecords.dns.cloudflare.io: >-
+      {{ $.Values.multitenancy.resourceQuotas.limits.maxRecords | quote }}
+    # Standard resource limits per tenant
+    limits.cpu: "{{ $.Values.multitenancy.resourceQuotas.limits.cpu }}"
+    limits.memory: "{{ $.Values.multitenancy.resourceQuotas.limits.memory }}"
+    requests.cpu: "{{ $.Values.multitenancy.resourceQuotas.limits.cpu }}"
+    requests.memory: "{{ $.Values.multitenancy.resourceQuotas.limits.memory }}"
+{{- end }}
+{{- end }}
+
+{{- end }}
+{{- end }}
