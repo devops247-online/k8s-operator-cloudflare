@@ -26,14 +26,6 @@ spec:
         - protocol: TCP
           port: {{ .Values.service.metricsPort }}
     {{- end }}
-    {{- if .Values.webhook.enableWebhook }}
-    # Allow webhook traffic
-    - from:
-        - namespaceSelector: {}
-      ports:
-        - protocol: TCP
-          port: {{ .Values.webhook.webhookPort }}
-    {{- end }}
   egress:
     # Allow DNS resolution
     - to:

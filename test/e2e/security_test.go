@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -99,7 +100,7 @@ var _ = Describe("Pod Security Standards", func() {
 
 		It("Should create NetworkPolicy when enabled", func() {
 			// Check if NetworkPolicy exists
-			networkPolicy := &corev1.NetworkPolicy{}
+			networkPolicy := &networkingv1.NetworkPolicy{}
 			nsName := types.NamespacedName{
 				Name:      "cloudflare-dns-operator",
 				Namespace: "cloudflare-operator-system",
@@ -115,8 +116,8 @@ var _ = Describe("Pod Security Standards", func() {
 				// Verify NetworkPolicy spec
 				Expect(networkPolicy.Spec.PodSelector.MatchLabels).To(HaveKey("app.kubernetes.io/name"))
 				Expect(networkPolicy.Spec.PolicyTypes).To(ContainElements(
-					corev1.PolicyTypeIngress,
-					corev1.PolicyTypeEgress,
+					networkingv1.PolicyTypeIngress,
+					networkingv1.PolicyTypeEgress,
 				))
 
 				// Check egress rules for DNS and Cloudflare API

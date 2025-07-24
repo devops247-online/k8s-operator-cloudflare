@@ -1,5 +1,4 @@
-{{- if .Values.podSecurityStandards.enabled }}
----
+{{- if and .Values.podSecurityStandards.enabled .Values.podSecurityStandards.createNamespace }}
 apiVersion: v1
 kind: Namespace
 metadata:

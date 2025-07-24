@@ -134,6 +134,8 @@ crds:
 podSecurityStandards:
   # Enable Pod Security Standards labels on namespace
   enabled: true
+  # Create namespace with Pod Security Standards labels
+  createNamespace: false
   # Enforce mode - blocks non-compliant pods
   enforce: restricted
   enforceVersion: latest
