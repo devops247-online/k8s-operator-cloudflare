@@ -1,7 +1,7 @@
 # Cloudflare DNS Operator
 
 [![CI Pipeline](https://github.com/devops247-online/k8s-operator-cloudflare/actions/workflows/ci.yml/badge.svg)](https://github.com/devops247-online/k8s-operator-cloudflare/actions/workflows/ci.yml)
-[![Security Scan](https://github.com/devops247-online/k8s-operator-cloudflare/actions/workflows/ci.yml/badge.svg?job=security)](https://github.com/devops247-online/k8s-operator-cloudflare/actions/workflows/ci.yml)
+[![GoSecScan](https://img.shields.io/github/actions/workflow/status/devops247-online/k8s-operator-cloudflare/ci.yml?label=gosec&logo=security&logoColor=white)](https://github.com/devops247-online/k8s-operator-cloudflare/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/devops247-online/k8s-operator-cloudflare/branch/main/graph/badge.svg)](https://codecov.io/gh/devops247-online/k8s-operator-cloudflare)
 [![Go Report Card](https://goreportcard.com/badge/github.com/devops247-online/k8s-operator-cloudflare)](https://goreportcard.com/report/github.com/devops247-online/k8s-operator-cloudflare)
 
