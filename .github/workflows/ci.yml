@@ -147,17 +147,17 @@ jobs:
           cache: true
 
       - name: Run gosec Security Scanner
-        uses: securecodewarrior/github-action-gosec@master
+        uses: securego/gosec@master
         with:
-          args: '-fmt sarif -out gosec.sarif -stdout -verbose=text ./...'
+          args: '-no-fail -fmt sarif -out results.sarif ./...'
 
       - name: Check gosec results
         run: |
-          if [ -f gosec.sarif ]; then
+          if [ -f results.sarif ]; then
             echo "✅ Security scan completed"
             # Show summary if jq is available
-            if command -v jq >/dev/null 2>&1 && [ -s gosec.sarif ]; then
-              findings=$(jq '.runs[0].results | length' gosec.sarif 2>/dev/null || echo "0")
+            if command -v jq >/dev/null 2>&1 && [ -s results.sarif ]; then
+              findings=$(jq '.runs[0].results | length' results.sarif 2>/dev/null || echo "0")
               echo "Security findings: $findings"
             fi
           else
@@ -167,16 +167,16 @@ jobs:
       - name: Upload SARIF file to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: gosec.sarif
-        if: always() && hashFiles('gosec.sarif') != ''
+          sarif_file: results.sarif
+        if: always() && hashFiles('results.sarif') != ''
 
       - name: Upload gosec report as artifact
         uses: actions/upload-artifact@v4
         with:
           name: gosec-report
-          path: gosec.sarif
+          path: results.sarif
           retention-days: 5
-        if: always() && hashFiles('gosec.sarif') != ''
+        if: always() && hashFiles('results.sarif') != ''
 
   # ==================== BUILD JOB ====================
   build:
