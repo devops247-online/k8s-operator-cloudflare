@@ -104,11 +104,13 @@ var _ = Describe("Utils", func() {
 			f, err := os.CreateTemp("", "test-uncomment-*.go")
 			Expect(err).NotTo(HaveOccurred())
 			tempFile = f.Name()
-			f.Close()
+			err = f.Close()
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		AfterEach(func() {
-			os.Remove(tempFile)
+			err := os.Remove(tempFile)
+			_ = err // Ignore error in cleanup
 		})
 
 		It("should uncomment single line", func() {
@@ -190,11 +192,14 @@ func main() {
 
 		It("LoadImageToKindClusterWithName should handle environment variable safely", func() {
 			// Test with environment variable
-			os.Setenv("KIND_CLUSTER", "test-cluster")
-			defer os.Unsetenv("KIND_CLUSTER")
+			err := os.Setenv("KIND_CLUSTER", "test-cluster")
+			Expect(err).NotTo(HaveOccurred())
+			defer func() {
+				_ = os.Unsetenv("KIND_CLUSTER")
+			}()
 
 			// This would normally fail but we're testing the construction
-			err := LoadImageToKindClusterWithName("test-image:latest")
+			err = LoadImageToKindClusterWithName("test-image:latest")
 			// We expect error because kind is not installed in test env
 			Expect(err).To(HaveOccurred())
 		})
