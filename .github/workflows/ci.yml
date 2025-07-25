@@ -389,7 +389,7 @@ jobs:
   cis-benchmark:
     name: CIS Kubernetes Benchmark
     runs-on: ubuntu-latest
-    needs: [docker, helm-charts]
+    needs: [build, helm-charts]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -537,7 +537,7 @@ jobs:
   validation:
     name: Final Validation
     runs-on: ubuntu-latest
-    needs: [build, manifests, e2e-test, cis-benchmark]
+    needs: [manifests, e2e-test, cis-benchmark]
     steps:
       - name: Pipeline Success Summary
         run: |
