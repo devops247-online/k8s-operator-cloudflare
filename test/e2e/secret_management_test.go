@@ -21,20 +21,31 @@ var _ = Describe("Secret Management", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 
-		// Create test namespace
+		// Create test namespace with unique name
 		testNamespace = &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: fmt.Sprintf("secret-test-%d", time.Now().Unix()),
+				Name: fmt.Sprintf("secret-test-%d-%d", time.Now().Unix(), time.Now().UnixNano()%1000000),
 			},
 		}
-		err := k8sClient.Create(ctx, testNamespace)
-		Expect(err).ToNot(HaveOccurred(), "Should be able to create test namespace")
+		// Create namespace with retry logic in case of conflicts
+		Eventually(func() error {
+			return k8sClient.Create(ctx, testNamespace)
+		}, time.Second*30, time.Second).Should(Succeed(), "Should be able to create test namespace")
 	})
 
 	AfterEach(func() {
 		if testNamespace != nil {
-			// Clean up test namespace
-			_ = k8sClient.Delete(ctx, testNamespace)
+			// Clean up test namespace with proper wait
+			Eventually(func() error {
+				return k8sClient.Delete(ctx, testNamespace)
+			}, time.Second*30, time.Second).Should(SatisfyAny(Succeed(), MatchError(ContainSubstring("not found"))))
+
+			// Wait for namespace to be fully deleted
+			Eventually(func() bool {
+				var ns corev1.Namespace
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: testNamespace.Name}, &ns)
+				return err != nil // Namespace should not be found
+			}, time.Second*30, time.Second).Should(BeTrue())
 		}
 	})
 

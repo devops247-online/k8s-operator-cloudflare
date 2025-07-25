@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 var _ = Describe("Security Hardening", func() {
@@ -20,22 +21,34 @@ var _ = Describe("Security Hardening", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 
-		// Create test namespace with security labels
+		// Create test namespace with security labels and unique name
 		testNamespace = &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: fmt.Sprintf("security-hardening-test-%d", time.Now().Unix()),
+				Name: fmt.Sprintf("security-hardening-test-%d-%d", time.Now().Unix(), time.Now().UnixNano()%1000000),
 				Labels: map[string]string{
 					"security.cloudflare.io/hardening": "enabled",
 				},
 			},
 		}
-		err := k8sClient.Create(ctx, testNamespace)
-		Expect(err).ToNot(HaveOccurred(), "Should be able to create test namespace")
+		// Create namespace with retry logic in case of conflicts
+		Eventually(func() error {
+			return k8sClient.Create(ctx, testNamespace)
+		}, time.Second*30, time.Second).Should(Succeed(), "Should be able to create test namespace")
 	})
 
 	AfterEach(func() {
 		if testNamespace != nil {
-			_ = k8sClient.Delete(ctx, testNamespace)
+			// Clean up test namespace with proper wait
+			Eventually(func() error {
+				return k8sClient.Delete(ctx, testNamespace)
+			}, time.Second*30, time.Second).Should(SatisfyAny(Succeed(), MatchError(ContainSubstring("not found"))))
+
+			// Wait for namespace to be fully deleted
+			Eventually(func() bool {
+				var ns corev1.Namespace
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: testNamespace.Name}, &ns)
+				return err != nil // Namespace should not be found
+			}, time.Second*30, time.Second).Should(BeTrue())
 		}
 	})
 
