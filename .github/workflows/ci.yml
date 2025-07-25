@@ -412,13 +412,27 @@ jobs:
           docker run --rm \
             -v "$PWD:/src" \
             aquasec/trivy:latest \
-            config /src \
-            --compliance k8s-cis \
-            --severity HIGH,CRITICAL \
+            k8s /src \
+            --compliance k8s-cis-1.23 \
             --format table \
             --exit-code 0 || true
 
-          echo "✅ CIS Benchmark scan completed"
+          echo "✅ CIS Kubernetes Benchmark scan completed"
+
+          # Run CIS Docker Benchmark on the operator image
+          echo ""
+          echo "🐳 Running CIS Docker Benchmark checks on operator image..."
+
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:latest \
+            image \
+            --compliance docker-cis \
+            --format table \
+            --exit-code 0 \
+            test-image:latest || true
+
+          echo "✅ CIS Docker Benchmark scan completed"
 
       - name: Check Deployment Security Configuration
         run: |
@@ -463,23 +477,48 @@ jobs:
           echo "Commit: ${{ github.sha }}" >> cis-report.txt
           echo "" >> cis-report.txt
 
-          # Run compliance checks
+          # Run K8s compliance checks
+          echo "Kubernetes Manifests Compliance:" >> cis-report.txt
           docker run --rm \
             -v "$PWD:/src" \
             aquasec/trivy:latest \
-            config /src \
-            --compliance k8s-cis \
+            k8s /src \
+            --compliance k8s-cis-1.23 \
             --format json \
-            --output /src/cis-results.json 2>/dev/null || true
+            --output /src/cis-k8s-results.json 2>/dev/null || true
 
-          if [ -f cis-results.json ]; then
-            echo "✅ CIS compliance report generated"
+          if [ -f cis-k8s-results.json ]; then
+            echo "✅ K8s CIS compliance report generated"
             # Parse results if jq is available
             if command -v jq >/dev/null 2>&1; then
-              passed=$(jq '.Results[0].Successes // 0' cis-results.json 2>/dev/null || echo "0")
-              failed=$(jq '.Results[0].Failures // 0' cis-results.json 2>/dev/null || echo "0")
-              echo "Passed checks: $passed" >> cis-report.txt
-              echo "Failed checks: $failed" >> cis-report.txt
+              passed=$(jq '.Results[0].Successes // 0' cis-k8s-results.json 2>/dev/null || echo "0")
+              failed=$(jq '.Results[0].Failures // 0' cis-k8s-results.json 2>/dev/null || echo "0")
+              echo "  K8s Passed checks: $passed" >> cis-report.txt
+              echo "  K8s Failed checks: $failed" >> cis-report.txt
+            fi
+          fi
+
+          # Run Docker compliance checks
+          echo "" >> cis-report.txt
+          echo "Docker Image Compliance:" >> cis-report.txt
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD:/src" \
+            aquasec/trivy:latest \
+            image \
+            --compliance docker-cis \
+            --format json \
+            --output /src/cis-docker-results.json \
+            test-image:latest 2>/dev/null || true
+
+          if [ -f cis-docker-results.json ]; then
+            echo "✅ Docker CIS compliance report generated"
+            # Parse results if jq is available
+            if command -v jq >/dev/null 2>&1; then
+              passed=$(jq '.Results[0].Successes // 0' cis-docker-results.json 2>/dev/null || echo "0")
+              failed=$(jq '.Results[0].Failures // 0' cis-docker-results.json 2>/dev/null || echo "0")
+              echo "  Docker Passed checks: $passed" >> cis-report.txt
+              echo "  Docker Failed checks: $failed" >> cis-report.txt
             fi
           fi
 
@@ -491,7 +530,8 @@ jobs:
           name: cis-compliance-report
           path: |
             cis-report.txt
-            cis-results.json
+            cis-k8s-results.json
+            cis-docker-results.json
           retention-days: 30
         if: always()
 

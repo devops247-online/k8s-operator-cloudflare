@@ -312,8 +312,14 @@ The CI/CD pipeline includes automated CIS Kubernetes Benchmark validation:
 
 ```bash
 # Run CIS benchmark checks locally
+
+# For Kubernetes manifests
 docker run --rm -v "$PWD:/src" aquasec/trivy:latest \
-  config /src --compliance k8s-cis
+  k8s /src --compliance k8s-cis-1.23
+
+# For Docker images
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+  aquasec/trivy:latest image --compliance docker-cis <image-name>
 ```
 
 #### Security Best Practices
