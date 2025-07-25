@@ -108,6 +108,64 @@ cloudflare:
   # Cloudflare Zone ID (optional, can be auto-discovered)
   zoneId: ""
 
+# Secret Management Configuration
+secrets:
+  # Secret provider: kubernetes, external-secrets-operator, vault
+  provider: kubernetes
+
+  # External Secrets Operator configuration
+  externalSecretsOperator:
+    # Enable External Secrets Operator integration
+    enabled: false
+    # Secret store configuration
+    secretStore:
+      name: cloudflare-secret-store
+      kind: SecretStore  # SecretStore or ClusterSecretStore
+      # Backend type: vault, aws-secrets-manager, azure-keyvault, etc.
+      backend: vault
+    # Refresh interval for secrets
+    refreshInterval: 1h
+    # External secret configuration
+    externalSecret:
+      name: cloudflare-credentials
+      # Data mapping from external secret to Kubernetes secret
+      dataFrom:
+        - extract:
+            key: cloudflare/credentials
+
+  # Vault integration configuration
+  vault:
+    # Enable Vault integration
+    enabled: false
+    # Vault server address
+    address: https://vault.example.com
+    # Authentication method: kubernetes, token, approle
+    authMethod: kubernetes
+    # Vault path for Cloudflare secrets
+    path: secret/data/cloudflare
+    # Kubernetes auth configuration
+    kubernetes:
+      role: cloudflare-operator
+      serviceAccount: cloudflare-dns-operator
+    # Secret rotation
+    rotation:
+      enabled: false
+      schedule: "0 0 * * 0"  # Weekly rotation
+
+  # Secret encryption at rest
+  encryption:
+    # Enable encryption at rest (requires encrypted etcd)
+    enabled: false
+    # KMS provider configuration
+    kmsProvider: ""
+
+  # Secret access auditing
+  auditing:
+    # Enable secret access auditing
+    enabled: false
+    # Audit log destination
+    destination: stdout  # stdout, file, syslog
+
 # Operator configuration
 operator:
   # Log level (debug, info, warn, error)
@@ -177,6 +235,86 @@ monitoring:
           protocol: UDP
         - port: 53
           protocol: TCP
+
+# Security Hardening Configuration
+securityHardening:
+  # Image security scanning
+  imageScanning:
+    # Enable image vulnerability scanning
+    enabled: false
+    # Scanner to use: trivy, snyk, grype
+    scanner: trivy
+    # Fail on critical vulnerabilities
+    failOnCritical: true
+    # Severity levels to report: CRITICAL, HIGH, MEDIUM, LOW
+    severityLevels:
+      - CRITICAL
+      - HIGH
+    # Ignore specific CVEs
+    ignoreCVEs: []
+
+  # Image signing and verification
+  imageSigning:
+    # Enable image signing verification
+    enabled: false
+    # Cosign public key for verification
+    cosignPublicKey: ""
+    # Policy enforcement mode: enforce, warn, disabled
+    policyMode: enforce
+
+  # Admission controller policies
+  admissionController:
+    # Enable admission controller policies
+    enabled: false
+    # Policy engine: opa, kyverno, polaris
+    engine: opa
+    # Policy rules
+    policies:
+      # Require security contexts
+      requireSecurityContext: true
+      # Disallow privileged containers
+      disallowPrivileged: true
+      # Require non-root user
+      requireNonRoot: true
+      # Require read-only root filesystem
+      requireReadOnlyRootFS: true
+
+  # Runtime security monitoring
+  runtimeSecurity:
+    # Enable runtime security monitoring
+    enabled: false
+    # Runtime security provider: falco, sysdig
+    provider: falco
+    # Alert on suspicious activity
+    alerting:
+      enabled: false
+      webhook: ""
+
+  # Compliance and benchmarks
+  compliance:
+    # Enable compliance checking
+    enabled: false
+    # Benchmarks to check: cis-kubernetes, nsa-kubernetes
+    benchmarks:
+      - cis-kubernetes
+      - nsa-kubernetes
+    # Generate compliance reports
+    reporting:
+      enabled: false
+      schedule: "0 0 * * 0"  # Weekly
+
+  # Security monitoring hooks
+  monitoring:
+    # Enable security event monitoring
+    enabled: false
+    # Export security metrics
+    metrics:
+      enabled: false
+      port: 9091
+    # Security event webhook
+    webhook:
+      enabled: false
+      url: ""
 
 # Multi-tenancy configuration
 multitenancy:
