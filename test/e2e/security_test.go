@@ -28,10 +28,10 @@ var _ = Describe("Pod Security Standards", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 
-		// Create a dedicated namespace for security testing
+		// Create a dedicated namespace for security testing with unique name
 		testNamespace = &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: fmt.Sprintf("security-test-%d", time.Now().Unix()),
+				Name: fmt.Sprintf("security-test-%d-%d", time.Now().Unix(), time.Now().UnixNano()%1000000),
 				Labels: map[string]string{
 					"pod-security.kubernetes.io/enforce": "restricted",
 					"pod-security.kubernetes.io/audit":   "restricted",
@@ -39,19 +39,25 @@ var _ = Describe("Pod Security Standards", func() {
 				},
 			},
 		}
-		err := k8sClient.Create(ctx, testNamespace)
-		if err != nil {
-			Skip(fmt.Sprintf("Failed to create test namespace: %v", err))
-		}
+		// Create namespace with retry logic in case of conflicts
+		Eventually(func() error {
+			return k8sClient.Create(ctx, testNamespace)
+		}, timeout, interval).Should(Succeed(), "Should be able to create test namespace")
 	})
 
 	AfterEach(func() {
 		if testNamespace != nil {
-			// Clean up test namespace
-			err := k8sClient.Delete(ctx, testNamespace)
-			if err != nil {
-				fmt.Printf("Warning: Failed to delete test namespace: %v\n", err)
-			}
+			// Clean up test namespace with proper wait
+			Eventually(func() error {
+				return k8sClient.Delete(ctx, testNamespace)
+			}, timeout, interval).Should(SatisfyAny(Succeed(), MatchError(ContainSubstring("not found"))))
+
+			// Wait for namespace to be fully deleted
+			Eventually(func() bool {
+				var ns corev1.Namespace
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: testNamespace.Name}, &ns)
+				return err != nil // Namespace should not be found
+			}, timeout, interval).Should(BeTrue())
 		}
 	})
 

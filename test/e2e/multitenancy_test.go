@@ -27,7 +27,7 @@ var _ = Describe("Multi-tenancy Features", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		testNamespacePrefix = fmt.Sprintf("mt-test-%d", time.Now().Unix())
+		testNamespacePrefix = fmt.Sprintf("mt-test-%d-%d", time.Now().Unix(), time.Now().UnixNano()%1000000)
 	})
 
 	Context("When testing namespace-scoped deployment", func() {
@@ -44,15 +44,25 @@ var _ = Describe("Multi-tenancy Features", func() {
 					},
 				},
 			}
-			err := k8sClient.Create(ctx, testNamespace)
-			if err != nil {
-				Skip(fmt.Sprintf("Failed to create test namespace: %v", err))
-			}
+			// Create namespace with retry logic in case of conflicts
+			Eventually(func() error {
+				return k8sClient.Create(ctx, testNamespace)
+			}, timeout, interval).Should(Succeed(), "Should be able to create test namespace")
 		})
 
 		AfterEach(func() {
 			if testNamespace != nil {
-				_ = k8sClient.Delete(ctx, testNamespace)
+				// Clean up test namespace with proper wait
+				Eventually(func() error {
+					return k8sClient.Delete(ctx, testNamespace)
+				}, timeout, interval).Should(SatisfyAny(Succeed(), MatchError(ContainSubstring("not found"))))
+
+				// Wait for namespace to be fully deleted
+				Eventually(func() bool {
+					var ns corev1.Namespace
+					err := k8sClient.Get(ctx, types.NamespacedName{Name: testNamespace.Name}, &ns)
+					return err != nil // Namespace should not be found
+				}, timeout, interval).Should(BeTrue())
 			}
 		})
 
@@ -149,18 +159,27 @@ var _ = Describe("Multi-tenancy Features", func() {
 						},
 					},
 				}
-				err := k8sClient.Create(ctx, ns)
-				if err != nil {
-					Skip(fmt.Sprintf("Failed to create tenant namespace %s: %v", tenantName, err))
-				}
+				// Create namespace with retry logic in case of conflicts
+				Eventually(func() error {
+					return k8sClient.Create(ctx, ns)
+				}, timeout, interval).Should(Succeed(), fmt.Sprintf("Should be able to create tenant namespace %s", tenantName))
 				tenantNamespaces = append(tenantNamespaces, ns)
 			}
 		})
 
 		AfterEach(func() {
-			// Clean up tenant namespaces
+			// Clean up tenant namespaces with proper wait
 			for _, ns := range tenantNamespaces {
-				_ = k8sClient.Delete(ctx, ns)
+				Eventually(func() error {
+					return k8sClient.Delete(ctx, ns)
+				}, timeout, interval).Should(SatisfyAny(Succeed(), MatchError(ContainSubstring("not found"))))
+
+				// Wait for namespace to be fully deleted
+				Eventually(func() bool {
+					var deletedNs corev1.Namespace
+					err := k8sClient.Get(ctx, types.NamespacedName{Name: ns.Name}, &deletedNs)
+					return err != nil // Namespace should not be found
+				}, timeout, interval).Should(BeTrue())
 			}
 		})
 
@@ -269,23 +288,43 @@ var _ = Describe("Multi-tenancy Features", func() {
 				},
 			}
 
-			err := k8sClient.Create(ctx, tenantANamespace)
-			if err != nil {
-				Skip(fmt.Sprintf("Failed to create tenant A namespace: %v", err))
-			}
+			// Create tenant A namespace with retry logic
+			Eventually(func() error {
+				return k8sClient.Create(ctx, tenantANamespace)
+			}, timeout, interval).Should(Succeed(), "Should be able to create tenant A namespace")
 
-			err = k8sClient.Create(ctx, tenantBNamespace)
-			if err != nil {
-				Skip(fmt.Sprintf("Failed to create tenant B namespace: %v", err))
-			}
+			// Create tenant B namespace with retry logic
+			Eventually(func() error {
+				return k8sClient.Create(ctx, tenantBNamespace)
+			}, timeout, interval).Should(Succeed(), "Should be able to create tenant B namespace")
 		})
 
 		AfterEach(func() {
 			if tenantANamespace != nil {
-				_ = k8sClient.Delete(ctx, tenantANamespace)
+				// Clean up tenant A namespace with proper wait
+				Eventually(func() error {
+					return k8sClient.Delete(ctx, tenantANamespace)
+				}, timeout, interval).Should(SatisfyAny(Succeed(), MatchError(ContainSubstring("not found"))))
+
+				// Wait for namespace to be fully deleted
+				Eventually(func() bool {
+					var ns corev1.Namespace
+					err := k8sClient.Get(ctx, types.NamespacedName{Name: tenantANamespace.Name}, &ns)
+					return err != nil // Namespace should not be found
+				}, timeout, interval).Should(BeTrue())
 			}
 			if tenantBNamespace != nil {
-				_ = k8sClient.Delete(ctx, tenantBNamespace)
+				// Clean up tenant B namespace with proper wait
+				Eventually(func() error {
+					return k8sClient.Delete(ctx, tenantBNamespace)
+				}, timeout, interval).Should(SatisfyAny(Succeed(), MatchError(ContainSubstring("not found"))))
+
+				// Wait for namespace to be fully deleted
+				Eventually(func() bool {
+					var ns corev1.Namespace
+					err := k8sClient.Get(ctx, types.NamespacedName{Name: tenantBNamespace.Name}, &ns)
+					return err != nil // Namespace should not be found
+				}, timeout, interval).Should(BeTrue())
 			}
 		})
 

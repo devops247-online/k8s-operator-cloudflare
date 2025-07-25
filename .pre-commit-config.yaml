@@ -48,16 +48,17 @@ repos:
         pass_filenames: false
         args: ['-c', 'if command -v gosec >/dev/null 2>&1; then echo "Running gosec security scan..." && gosec -fmt=text ./...; else echo "⚠️  gosec not installed. Install with: curl -sfL https://raw.githubusercontent.com/securecodewarrior/gosec/master/install.sh | sh -s"; fi']
 
-  # Trivy security scanner (disabled for now - can be enabled later)
-  # - repo: local
-  #   hooks:
-  #     - id: trivy-fs
-  #       name: Trivy filesystem scan
-  #       description: Run Trivy filesystem scan
-  #       entry: trivy fs --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --exit-code 1 .
-  #       language: system
-  #       pass_filenames: false
-  #       files: \.(js|json|yaml|yml|dockerfile|py)$
+  # Trivy security scanner
+  - repo: local
+    hooks:
+      - id: trivy-fs
+        name: Trivy filesystem scan
+        description: Run Trivy filesystem scan
+        entry: bash
+        language: system
+        pass_filenames: false
+        files: \.(go|yaml|yml|dockerfile)$
+        args: ['-c', 'if command -v trivy >/dev/null 2>&1; then echo "Running Trivy security scan..." && trivy fs --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --exit-code 0 .; else echo "⚠️  Trivy not installed. Install from: https://github.com/aquasecurity/trivy"; fi']
 
   # Docker security scanning (disabled for now - can be enabled later)
   # - repo: local

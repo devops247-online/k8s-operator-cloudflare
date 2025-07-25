@@ -1,0 +1,149 @@
+# Security hardened configuration example
+# This configuration enables all security features
+
+# Secret management with External Secrets Operator
+secrets:
+  provider: external-secrets-operator
+
+  externalSecretsOperator:
+    enabled: true
+    secretStore:
+      name: cloudflare-secret-store
+      kind: SecretStore
+      backend: vault
+    refreshInterval: 1h
+    externalSecret:
+      name: cloudflare-credentials
+      dataFrom:
+        - extract:
+            key: cloudflare/credentials
+
+  vault:
+    enabled: true
+    address: https://vault.example.com
+    authMethod: kubernetes
+    path: secret/data/cloudflare
+    kubernetes:
+      role: cloudflare-operator
+      serviceAccount: cloudflare-dns-operator
+    rotation:
+      enabled: true
+      schedule: "0 0 * * 0"
+
+  encryption:
+    enabled: true
+    kmsProvider: "aws-kms"
+
+  auditing:
+    enabled: true
+    destination: syslog
+
+# Security hardening features
+securityHardening:
+  imageScanning:
+    enabled: true
+    scanner: trivy
+    failOnCritical: true
+    severityLevels:
+      - CRITICAL
+      - HIGH
+      - MEDIUM
+    ignoreCVEs: []
+
+  imageSigning:
+    enabled: true
+    cosignPublicKey: |
+      -----BEGIN PUBLIC KEY-----
+      MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...
+      -----END PUBLIC KEY-----
+    policyMode: enforce
+
+  admissionController:
+    enabled: true
+    engine: opa
+    policies:
+      requireSecurityContext: true
+      disallowPrivileged: true
+      requireNonRoot: true
+      requireReadOnlyRootFS: true
+
+  runtimeSecurity:
+    enabled: true
+    provider: falco
+    alerting:
+      enabled: true
+      webhook: https://alerts.example.com/falco
+
+  compliance:
+    enabled: true
+    benchmarks:
+      - cis-kubernetes
+      - nsa-kubernetes
+    reporting:
+      enabled: true
+      schedule: "0 0 * * 0"
+
+  monitoring:
+    enabled: true
+    metrics:
+      enabled: true
+      port: 9091
+    webhook:
+      enabled: true
+      url: https://siem.example.com/events
+
+# Enhanced Pod Security
+podSecurityStandards:
+  enabled: true
+  enforce: restricted
+  enforceVersion: latest
+  audit: restricted
+  auditVersion: latest
+  warn: restricted
+  warnVersion: latest
+
+# Network policies enabled
+networkPolicy:
+  enabled: true
+  prometheusNamespace: prometheus-system
+  prometheusPodLabels:
+    app.kubernetes.io/name: prometheus
+
+# Multi-tenancy with security
+multitenancy:
+  enabled: true
+  scope: namespace
+  validation:
+    enforceNamespaceSecrets: true
+    validateZoneOwnership: true
+
+# Resource limits for security
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Security contexts
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  fsGroupChangePolicy: "OnRootMismatch"
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
