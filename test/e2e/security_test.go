@@ -40,9 +40,7 @@ var _ = Describe("Pod Security Standards", func() {
 			},
 		}
 		err := k8sClient.Create(ctx, testNamespace)
-		if err != nil {
-			Skip(fmt.Sprintf("Failed to create test namespace: %v", err))
-		}
+		Expect(err).ToNot(HaveOccurred(), "Should be able to create test namespace")
 	})
 
 	AfterEach(func() {
