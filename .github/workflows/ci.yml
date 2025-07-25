@@ -17,17 +17,14 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
       - name: Install pre-commit
         run: |
           pip install pre-commit
           pre-commit --version
-
       - name: Run pre-commit hooks
         run: |
           pre-commit run --all-files --show-diff-on-failure
@@ -40,18 +37,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache: true
-
       - name: Download dependencies
         run: |
           go mod download
           go mod tidy
-
       - name: Check code formatting
         run: |
           go fmt ./...
@@ -60,16 +54,13 @@ jobs:
             git diff
             exit 1
           fi
-
       - name: Run go vet
         run: go vet ./...
-
       - name: Install and run golangci-lint
         run: |
           # Download and install golangci-lint manually to avoid config validation issues
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin ${{ env.GOLANGCI_LINT_VERSION }}
           export PATH=$(go env GOPATH)/bin:$PATH
-
           # Run golangci-lint without config file to avoid network timeout
           golangci-lint run --timeout=10m --no-config --enable-only=errcheck,unparam,govet,staticcheck,ineffassign,misspell
 
@@ -81,19 +72,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache: true
-
       - name: Download dependencies
         run: go mod download
-
       - name: Run unit tests with coverage
         run: make test
-
       - name: Generate coverage report
         run: |
           go tool cover -html=cover.out -o coverage.html
@@ -101,12 +88,10 @@ jobs:
           # Convert Go coverage to lcov format for Codecov
           go install github.com/jandelgado/gcov2lcov@latest
           gcov2lcov -infile=cover.out -outfile=lcov.info
-
       - name: Display coverage summary
         run: |
           echo "Coverage Summary:"
           tail -n 1 coverage.txt
-
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
@@ -114,7 +99,6 @@ jobs:
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
         if: hashFiles('lcov.info') != ''
-
       - name: Upload coverage artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -139,18 +123,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache: true
-
       - name: Run gosec Security Scanner
         uses: securego/gosec@master
         with:
           args: '-no-fail -fmt sarif -out results.sarif ./...'
-
       - name: Check gosec results
         run: |
           if [ -f results.sarif ]; then
@@ -163,13 +144,11 @@ jobs:
           else
             echo "⚠️  No SARIF output generated"
           fi
-
       - name: Upload SARIF file to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: results.sarif
         if: always() && hashFiles('results.sarif') != ''
-
       - name: Upload gosec report as artifact
         uses: actions/upload-artifact@v4
         with:
@@ -209,6 +188,21 @@ jobs:
           docker inspect test-image:latest
           echo "Docker image built successfully"
 
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'test-image:latest'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'  # Don't fail the build, just report
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+        if: always()
+
       - name: Save Docker image
         run: |
           docker save test-image:latest > test-image.tar
@@ -228,16 +222,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Set up Helm
         uses: azure/setup-helm@v4
         with:
           version: 'v3.14.0'
-
       - name: Install Python dependencies
         run: |
           pip3 install PyYAML
-
       - name: Lint Helm Charts
         run: |
           for chart in charts/*/; do
@@ -247,7 +238,6 @@ jobs:
               echo "✅ Chart $chart passed lint check"
             fi
           done
-
       - name: Template Helm Charts
         run: |
           for chart in charts/*/; do
@@ -257,14 +247,12 @@ jobs:
               echo "✅ Chart $chart templated successfully"
             fi
           done
-
       - name: Test Security Configuration
         run: |
           for chart in charts/*/; do
             if [ -f "$chart/Chart.yaml" ] && [ -f "$chart/ci/security-test-values.yaml" ]; then
               echo "Testing security configuration for: $chart"
               helm template test "$chart" --values "$chart/ci/security-test-values.yaml" > security-manifest.yaml
-
               # Check for security contexts in deployment
               echo "Checking security contexts..."
               if grep -q "securityContext:" security-manifest.yaml && \
@@ -276,25 +264,21 @@ jobs:
                 echo "❌ Security contexts missing or incomplete"
                 exit 1
               fi
-
               # Check for Pod Security Standards labels
               if grep -q "pod-security.kubernetes.io/enforce: restricted" security-manifest.yaml; then
                 echo "✅ Pod Security Standards labels found"
               else
                 echo "⚠️  Pod Security Standards labels not found (may be optional)"
               fi
-
               # Check for NetworkPolicy
               if grep -q "kind: NetworkPolicy" security-manifest.yaml; then
                 echo "✅ NetworkPolicy found"
               else
                 echo "⚠️  NetworkPolicy not found (may be optional)"
               fi
-
               rm -f security-manifest.yaml
             fi
           done
-
       - name: Validate Helm Chart Values
         run: |
           for chart in charts/*/; do
@@ -323,19 +307,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache: true
-
       - name: Download dependencies
         run: go mod download
-
       - name: Generate manifests
         run: make manifests generate
-
       - name: Check generated files
         run: |
           if [ -n "$(git diff --name-only)" ]; then
@@ -344,37 +324,29 @@ jobs:
             exit 1
           fi
           echo "Generated files are up to date"
-
       - name: Build installer
         run: |
           make build-installer IMG=test-image:latest
           ls -la dist/
-
       - name: Validate Kubernetes manifests
         run: |
           # Install dependencies
           pip3 install PyYAML
-
           # Basic YAML syntax and structure validation using Python
           python3 -c "
           import yaml
           import sys
-
           def validate_k8s_manifest(file_path):
               try:
                   with open(file_path, 'r') as f:
                       docs = list(yaml.safe_load_all(f))
-
                   print(f'YAML syntax valid - found {len(docs)} documents')
-
                   # Check for required fields in each document
                   for i, doc in enumerate(docs):
                       if not doc:  # Skip empty documents
                           continue
-
                       if 'apiVersion' in doc and 'kind' in doc:
                           print(f'  Document {i+1}: {doc[\"kind\"]} ({doc[\"apiVersion\"]})')
-
                           # Validate metadata for most resources
                           if doc[\"kind\"] not in ['CustomResourceDefinition']:
                               if 'metadata' not in doc or 'name' not in doc.get('metadata', {}):
@@ -383,7 +355,6 @@ jobs:
                       elif doc:
                           print(f'  ERROR: Document {i+1}: Missing required fields (apiVersion or kind)')
                           sys.exit(1)
-
                   return True
               except yaml.YAMLError as e:
                   print(f'ERROR: YAML parsing failed: {e}')
@@ -394,24 +365,19 @@ jobs:
               except Exception as e:
                   print(f'ERROR: Validation failed: {e}')
                   sys.exit(1)
-
           if validate_k8s_manifest('dist/install.yaml'):
               print('All Kubernetes manifests are valid')
           "
-
           # Verify file exists and has content
           if [ ! -f dist/install.yaml ]; then
             echo "ERROR: dist/install.yaml not found"
             exit 1
           fi
-
           if [ ! -s dist/install.yaml ]; then
             echo "ERROR: dist/install.yaml is empty"
             exit 1
           fi
-
           echo "Kubernetes manifests validation completed successfully"
-
       - name: Upload manifest artifact
         uses: actions/upload-artifact@v4
         with:

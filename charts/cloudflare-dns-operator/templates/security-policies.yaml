@@ -1,0 +1,161 @@
+{{- if .Values.securityHardening.admissionController.enabled -}}
+{{- if eq .Values.securityHardening.admissionController.engine "opa" -}}
+---
+# OPA ConfigMap with security policies
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cloudflare-dns-operator.fullname" . }}-opa-policies
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cloudflare-dns-operator.labels" . | nindent 4 }}
+    app.kubernetes.io/component: security-policies
+data:
+  cloudflare-operator-policies.rego: |
+    package kubernetes.admission
+
+    import future.keywords.contains
+    import future.keywords.if
+    import future.keywords.in
+
+    # Deny containers without security context
+    {{- if .Values.securityHardening.admissionController.policies.requireSecurityContext }}
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      container := input.request.object.spec.containers[_]
+      not container.securityContext
+      msg := sprintf("Container %v is missing securityContext", [container.name])
+    }
+    {{- end }}
+
+    # Deny privileged containers
+    {{- if .Values.securityHardening.admissionController.policies.disallowPrivileged }}
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      container := input.request.object.spec.containers[_]
+      container.securityContext.privileged == true
+      msg := sprintf("Container %v is running in privileged mode", [container.name])
+    }
+    {{- end }}
+
+    # Require non-root user
+    {{- if .Values.securityHardening.admissionController.policies.requireNonRoot }}
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      container := input.request.object.spec.containers[_]
+      not container.securityContext.runAsNonRoot == true
+      msg := sprintf("Container %v must run as non-root user", [container.name])
+    }
+    {{- end }}
+
+    # Require read-only root filesystem
+    {{- if .Values.securityHardening.admissionController.policies.requireReadOnlyRootFS }}
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      container := input.request.object.spec.containers[_]
+      not container.securityContext.readOnlyRootFilesystem == true
+      msg := sprintf("Container %v must have read-only root filesystem", [container.name])
+    }
+    {{- end }}
+
+    # Deny containers without resource limits
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      container := input.request.object.spec.containers[_]
+      not container.resources.limits
+      msg := sprintf("Container %v is missing resource limits", [container.name])
+    }
+
+    # Deny host network
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      input.request.object.spec.hostNetwork == true
+      msg := "Pods are not allowed to use host network"
+    }
+
+    # Deny host PID
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      input.request.object.spec.hostPID == true
+      msg := "Pods are not allowed to use host PID namespace"
+    }
+
+    # Deny host IPC
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      input.request.object.spec.hostIPC == true
+      msg := "Pods are not allowed to use host IPC namespace"
+    }
+{{- else if eq .Values.securityHardening.admissionController.engine "kyverno" -}}
+---
+# Kyverno Policy for security enforcement
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: {{ include "cloudflare-dns-operator.fullname" . }}-security-policies
+  labels:
+    {{- include "cloudflare-dns-operator.labels" . | nindent 4 }}
+    app.kubernetes.io/component: security-policies
+spec:
+  validationFailureAction: enforce
+  background: true
+  rules:
+    {{- if .Values.securityHardening.admissionController.policies.requireSecurityContext }}
+    - name: require-security-context
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+            namespaces:
+            - {{ .Release.Namespace }}
+      validate:
+        message: "Security context is required for all containers"
+        pattern:
+          spec:
+            =(securityContext):
+              =(runAsNonRoot): "true"
+            containers:
+            - name: "*"
+              securityContext:
+                runAsNonRoot: true
+    {{- end }}
+    {{- if .Values.securityHardening.admissionController.policies.disallowPrivileged }}
+    - name: disallow-privileged
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+            namespaces:
+            - {{ .Release.Namespace }}
+      validate:
+        message: "Privileged containers are not allowed"
+        pattern:
+          spec:
+            =(securityContext):
+              =(privileged): "false"
+            containers:
+            - =(securityContext):
+                =(privileged): "false"
+    {{- end }}
+    {{- if .Values.securityHardening.admissionController.policies.requireReadOnlyRootFS }}
+    - name: require-readonly-rootfs
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+            namespaces:
+            - {{ .Release.Namespace }}
+      validate:
+        message: "Read-only root filesystem is required"
+        pattern:
+          spec:
+            containers:
+            - name: "*"
+              securityContext:
+                readOnlyRootFilesystem: true
+    {{- end }}
+{{- end }}
+{{- end }}
