@@ -11,6 +11,7 @@ A Kubernetes operator for managing DNS records in Cloudflare using the official 
 ## Description
 
 This operator allows you to manage DNS records in Cloudflare directly from Kubernetes using Custom Resource Definitions (CRDs). It provides a declarative way to create, update, and delete DNS records while following Kubernetes best practices for operator development.
+The documentation for this project was created with the assistance of Claude. Additionally, support was provided for writing end-to-end (e2e) tests.
 
 ## Getting Started
 
