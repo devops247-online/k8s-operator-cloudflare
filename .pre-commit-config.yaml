@@ -40,6 +40,13 @@ repos:
         language: system
         files: \.go$
         pass_filenames: false
+      - id: golangci-lint
+        name: golangci-lint
+        entry: bash
+        language: system
+        files: \.go$
+        pass_filenames: false
+        args: ['-c', 'if command -v golangci-lint >/dev/null 2>&1; then echo "Running golangci-lint..." && golangci-lint run --timeout=10m --no-config --enable-only=errcheck,unparam,govet,staticcheck,ineffassign,misspell; else echo "⚠️  golangci-lint not installed. Install with: brew install golangci-lint"; fi']
       - id: gosec
         name: Go security scan
         entry: bash

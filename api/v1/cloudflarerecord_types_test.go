@@ -361,13 +361,8 @@ func testInvalidNumericValues(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			hasValidationIssue := false
-			if tt.spec.TTL != nil && *tt.spec.TTL < 1 {
-				hasValidationIssue = true
-			}
-			if tt.spec.Priority != nil && *tt.spec.Priority < 0 {
-				hasValidationIssue = true
-			}
+			hasValidationIssue := (tt.spec.TTL != nil && *tt.spec.TTL < 1) ||
+				(tt.spec.Priority != nil && *tt.spec.Priority < 0)
 			assert.True(t, hasValidationIssue, "Should have validation issue for negative values")
 		})
 	}
@@ -396,13 +391,8 @@ func testInvalidRangeValues(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			hasValidationIssue := false
-			if tt.spec.TTL != nil && *tt.spec.TTL > 2147483647 {
-				hasValidationIssue = true
-			}
-			if tt.spec.Priority != nil && *tt.spec.Priority > 65535 {
-				hasValidationIssue = true
-			}
+			hasValidationIssue := (tt.spec.TTL != nil && *tt.spec.TTL > 2147483647) ||
+				(tt.spec.Priority != nil && *tt.spec.Priority > 65535)
 			assert.True(t, hasValidationIssue, "Should have validation issue for out-of-range values")
 		})
 	}

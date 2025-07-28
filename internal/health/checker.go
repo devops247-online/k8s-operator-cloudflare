@@ -87,7 +87,7 @@ func (c *Checker) ReadinessCheck(req *http.Request) error {
 }
 
 // checkKubernetesAPI verifies connectivity to Kubernetes API
-func (c *Checker) checkKubernetesAPI(ctx context.Context) error {
+func (c *Checker) checkKubernetesAPI(_ context.Context) error {
 	if c.k8sClient == nil {
 		return fmt.Errorf("kubernetes client not initialized")
 	}
@@ -102,7 +102,7 @@ func (c *Checker) checkKubernetesAPI(ctx context.Context) error {
 }
 
 // checkCRDAvailability verifies that CloudflareRecord CRD is available
-func (c *Checker) checkCRDAvailability(ctx context.Context) error {
+func (c *Checker) checkCRDAvailability(_ context.Context) error {
 	if c.discoveryClient == nil {
 		return fmt.Errorf("discovery client not initialized")
 	}
@@ -143,14 +143,15 @@ func (c *Checker) checkCloudflareAPI(ctx context.Context) error {
 }
 
 // checkLeaderElectionStatus verifies leader election status
-func (c *Checker) checkLeaderElectionStatus(ctx context.Context) error {
+func (c *Checker) checkLeaderElectionStatus(_ context.Context) error {
 	// If manager doesn't have leader election enabled, skip check
 	if c.manager == nil {
-		return nil
+		return fmt.Errorf("manager not initialized")
 	}
 
 	// For now, just check if we can access the lease resource
 	// In production, you might want to check if this instance is the leader
+	// TODO: Implement actual leader election status check
 	return nil
 }
 
