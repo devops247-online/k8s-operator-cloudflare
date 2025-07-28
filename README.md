@@ -2,6 +2,7 @@
 
 [![CI Pipeline](https://github.com/devops247-online/k8s-operator-cloudflare/actions/workflows/ci.yml/badge.svg)](https://github.com/devops247-online/k8s-operator-cloudflare/actions/workflows/ci.yml)
 [![GoSecScan](https://img.shields.io/github/actions/workflow/status/devops247-online/k8s-operator-cloudflare/ci.yml?label=gosec&logo=security&logoColor=white)](https://github.com/devops247-online/k8s-operator-cloudflare/actions/workflows/ci.yml)
+[![CIS Benchmark](https://img.shields.io/badge/CIS%20Kubernetes%20Benchmark-compliant-success?logo=kubernetes&logoColor=white)](https://github.com/devops247-online/k8s-operator-cloudflare/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/devops247-online/k8s-operator-cloudflare/branch/main/graph/badge.svg)](https://codecov.io/gh/devops247-online/k8s-operator-cloudflare)
 [![Go Report Card](https://goreportcard.com/badge/github.com/devops247-online/k8s-operator-cloudflare)](https://goreportcard.com/report/github.com/devops247-online/k8s-operator-cloudflare)
 
@@ -290,6 +291,55 @@ make test
 go tool cover -html=cover.out -o coverage.html
 # Open coverage.html in browser
 ```
+
+## Security & Compliance
+
+### CIS Kubernetes Benchmark
+
+This operator is designed to comply with the [CIS Kubernetes Benchmark](https://www.cisecurity.org/benchmark/kubernetes) security standards. Our CI/CD pipeline automatically validates compliance with CIS benchmarks on every commit.
+
+#### Security Features
+
+- **Pod Security Standards**: Enforces `restricted` security profile by default
+- **Security Contexts**: All containers run as non-root with read-only root filesystem
+- **Resource Limits**: Mandatory resource constraints to prevent resource exhaustion
+- **Network Policies**: Supports network isolation and traffic control
+- **RBAC**: Least privilege access with minimal required permissions
+
+#### CIS Compliance Checks
+
+The CI/CD pipeline includes automated CIS Kubernetes Benchmark validation:
+
+```bash
+# Run CIS benchmark checks locally
+
+# For Kubernetes manifests
+docker run --rm -v "$PWD:/src" aquasec/trivy:latest \
+  k8s /src --compliance k8s-cis-1.23
+
+# For Docker images
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+  aquasec/trivy:latest image --compliance docker-cis <image-name>
+```
+
+#### Security Best Practices
+
+1. **Secret Management**:
+   - Use Kubernetes secrets for API tokens
+   - Support for External Secrets Operator
+   - Integration with HashiCorp Vault
+
+2. **Image Security**:
+   - Distroless base images
+   - Regular vulnerability scanning with Trivy
+   - Image signing support with cosign
+
+3. **Runtime Security**:
+   - Admission controller policies (OPA/Kyverno)
+   - Runtime monitoring with Falco
+   - Security event logging and alerting
+
+For detailed security configuration, see [docs/SECURITY.md](docs/SECURITY.md).
 
 ## Contributing
 

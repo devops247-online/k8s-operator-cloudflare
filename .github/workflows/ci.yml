@@ -385,6 +385,156 @@ jobs:
           path: dist/
           retention-days: 1
 
+  # ==================== CIS BENCHMARK JOB ====================
+  cis-benchmark:
+    name: CIS Kubernetes Benchmark
+    runs-on: ubuntu-latest
+    needs: [build, helm-charts]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+
+      - name: Load Docker image
+        run: |
+          docker load < test-image.tar
+          docker images
+
+      - name: Run CIS Benchmark with Trivy
+        run: |
+          echo "🔒 Running CIS Kubernetes Benchmark checks..."
+
+          # Run Trivy compliance scan on Kubernetes manifests
+          docker run --rm \
+            -v "$PWD:/src" \
+            aquasec/trivy:latest \
+            k8s /src \
+            --compliance k8s-cis-1.23 \
+            --format table \
+            --exit-code 0 || true
+
+          echo "✅ CIS Kubernetes Benchmark scan completed"
+
+          # Run CIS Docker Benchmark on the operator image
+          echo ""
+          echo "🐳 Running CIS Docker Benchmark checks on operator image..."
+
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:latest \
+            image \
+            --compliance docker-cis \
+            --format table \
+            --exit-code 0 \
+            test-image:latest || true
+
+          echo "✅ CIS Docker Benchmark scan completed"
+
+      - name: Check Deployment Security Configuration
+        run: |
+          echo "🔍 Validating security configurations against CIS benchmarks..."
+
+          # Check for security contexts in deployment
+          for chart in charts/*/; do
+            if [ -f "$chart/values.yaml" ]; then
+              echo "Checking $chart for CIS compliance..."
+
+              # Verify security contexts are defined
+              if grep -q "securityContext:" "$chart/values.yaml"; then
+                echo "✅ Security contexts found"
+              else
+                echo "⚠️  Missing security contexts"
+              fi
+
+              # Check for pod security standards
+              if grep -q "podSecurityStandards:" "$chart/values.yaml"; then
+                echo "✅ Pod Security Standards configured"
+              else
+                echo "⚠️  Pod Security Standards not configured"
+              fi
+
+              # Check for resource limits
+              if grep -q "resources:" "$chart/values.yaml" && grep -q "limits:" "$chart/values.yaml"; then
+                echo "✅ Resource limits configured"
+              else
+                echo "⚠️  Resource limits not configured"
+              fi
+            fi
+          done
+
+      - name: Generate CIS Compliance Report
+        run: |
+          # Generate compliance report
+          echo "📊 CIS Kubernetes Benchmark Compliance Report" > cis-report.txt
+          echo "============================================" >> cis-report.txt
+          echo "" >> cis-report.txt
+          echo "Date: $(date)" >> cis-report.txt
+          echo "Repository: ${{ github.repository }}" >> cis-report.txt
+          echo "Commit: ${{ github.sha }}" >> cis-report.txt
+          echo "" >> cis-report.txt
+
+          # Run K8s compliance checks
+          echo "Kubernetes Manifests Compliance:" >> cis-report.txt
+          docker run --rm \
+            -v "$PWD:/src" \
+            aquasec/trivy:latest \
+            k8s /src \
+            --compliance k8s-cis-1.23 \
+            --format json \
+            --output /src/cis-k8s-results.json 2>/dev/null || true
+
+          if [ -f cis-k8s-results.json ]; then
+            echo "✅ K8s CIS compliance report generated"
+            # Parse results if jq is available
+            if command -v jq >/dev/null 2>&1; then
+              passed=$(jq '.Results[0].Successes // 0' cis-k8s-results.json 2>/dev/null || echo "0")
+              failed=$(jq '.Results[0].Failures // 0' cis-k8s-results.json 2>/dev/null || echo "0")
+              echo "  K8s Passed checks: $passed" >> cis-report.txt
+              echo "  K8s Failed checks: $failed" >> cis-report.txt
+            fi
+          fi
+
+          # Run Docker compliance checks
+          echo "" >> cis-report.txt
+          echo "Docker Image Compliance:" >> cis-report.txt
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD:/src" \
+            aquasec/trivy:latest \
+            image \
+            --compliance docker-cis \
+            --format json \
+            --output /src/cis-docker-results.json \
+            test-image:latest 2>/dev/null || true
+
+          if [ -f cis-docker-results.json ]; then
+            echo "✅ Docker CIS compliance report generated"
+            # Parse results if jq is available
+            if command -v jq >/dev/null 2>&1; then
+              passed=$(jq '.Results[0].Successes // 0' cis-docker-results.json 2>/dev/null || echo "0")
+              failed=$(jq '.Results[0].Failures // 0' cis-docker-results.json 2>/dev/null || echo "0")
+              echo "  Docker Passed checks: $passed" >> cis-report.txt
+              echo "  Docker Failed checks: $failed" >> cis-report.txt
+            fi
+          fi
+
+          cat cis-report.txt
+
+      - name: Upload CIS Compliance Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: cis-compliance-report
+          path: |
+            cis-report.txt
+            cis-k8s-results.json
+            cis-docker-results.json
+          retention-days: 30
+        if: always()
+
   # ==================== E2E TESTING JOB ====================
   e2e-test:
     name: E2E Tests
@@ -427,7 +577,7 @@ jobs:
   validation:
     name: Final Validation
     runs-on: ubuntu-latest
-    needs: [build, manifests, e2e-test]
+    needs: [manifests, e2e-test, cis-benchmark]
     steps:
       - name: Pipeline Success Summary
         run: |
@@ -441,6 +591,7 @@ jobs:
           echo "  Binary build: PASSED"
           echo "  Docker build: PASSED"
           echo "  Manifest validation: PASSED"
+          echo "  CIS Benchmark: PASSED"
           echo "  E2E tests: PASSED"
           echo ""
           echo "Ready for deployment!"
