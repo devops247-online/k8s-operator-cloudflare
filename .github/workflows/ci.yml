@@ -404,20 +404,54 @@ jobs:
           docker load < test-image.tar
           docker images
 
+      - name: Render Helm chart to manifests
+        run: |
+          # Install Helm if not present
+          if ! command -v helm &> /dev/null; then
+            curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          fi
+
+          # Render Helm chart to Kubernetes manifests
+          mkdir -p ./rendered-manifests
+          helm template test-release ./charts/cloudflare-dns-operator > ./rendered-manifests/k8s-manifests.yaml
+          echo "✅ Helm chart rendered to manifests"
+
       - name: Run CIS Benchmark with Trivy
         run: |
           echo "🔒 Running CIS Kubernetes Benchmark checks..."
 
-          # Run Trivy compliance scan on Kubernetes manifests
+          # Run CIS Kubernetes v1.23 compliance scan
+          echo "📋 Running CIS Kubernetes v1.23 compliance scan..."
           docker run --rm \
-            -v "$PWD:/src" \
+            -v "$PWD/rendered-manifests:/manifests" \
             aquasec/trivy:latest \
-            k8s /src \
+            config /manifests \
             --compliance k8s-cis-1.23 \
             --format table \
             --exit-code 0 || true
 
-          echo "✅ CIS Kubernetes Benchmark scan completed"
+          # Run EKS CIS v1.4 compliance scan
+          echo ""
+          echo "📋 Running EKS CIS v1.4 compliance scan..."
+          docker run --rm \
+            -v "$PWD/rendered-manifests:/manifests" \
+            aquasec/trivy:latest \
+            config /manifests \
+            --compliance eks-cis-1.4 \
+            --format table \
+            --exit-code 0 || true
+
+          echo "✅ CIS compliance scans completed"
+
+          # Run basic security scan on manifests
+          echo ""
+          echo "🔍 Running basic security scan on manifests..."
+          docker run --rm \
+            -v "$PWD/rendered-manifests:/manifests" \
+            aquasec/trivy:latest \
+            config /manifests \
+            --format table \
+            --exit-code 0 || true
 
           # Run CIS Docker Benchmark on the operator image
           echo ""
