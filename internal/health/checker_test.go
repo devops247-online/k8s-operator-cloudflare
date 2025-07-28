@@ -1,74 +1,159 @@
 package health
 
 import (
+	"context"
+	"errors"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/cloudflare/cloudflare-go"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
-func TestChecker_LivenessCheck_WithNilManager(t *testing.T) {
-	checker := &Checker{
-		manager: nil,
+// Simple mock for CloudflareAPI
+type SimpleMockCloudflareAPI struct {
+	mock.Mock
+}
+
+func (m *SimpleMockCloudflareAPI) VerifyAPIToken(ctx context.Context) (cloudflare.APITokenVerifyBody, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return cloudflare.APITokenVerifyBody{}, args.Error(1)
+	}
+	return args.Get(0).(cloudflare.APITokenVerifyBody), args.Error(1)
+}
+
+func TestChecker_checkKubernetesAPI_Simple(t *testing.T) {
+	tests := []struct {
+		name        string
+		nilClient   bool
+		expectError bool
+	}{
+		{
+			name:        "nil client should error",
+			nilClient:   true,
+			expectError: true,
+		},
+		{
+			name:        "valid client should succeed",
+			nilClient:   false,
+			expectError: false,
+		},
 	}
 
-	req := httptest.NewRequest("GET", "/healthz", nil)
-	err := checker.LivenessCheck(req)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			checker := &Checker{}
+			if !tt.nilClient {
+				checker.k8sClient = fake.NewSimpleClientset()
+			}
 
-	if err == nil {
-		t.Error("expected error when manager is nil, got nil")
-	}
+			err := checker.checkKubernetesAPI(context.Background())
 
-	if err != nil && err.Error() != "manager is not initialized" {
-		t.Errorf("expected 'manager is not initialized', got %s", err.Error())
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), "kubernetes client not initialized")
+			} else {
+				assert.NoError(t, err)
+			}
+		})
 	}
 }
 
-func TestChecker_LivenessCheck_WithNilK8sClient(t *testing.T) {
-	checker := &Checker{
-		k8sClient: nil,
+func TestChecker_checkCloudflareAPI_Simple(t *testing.T) {
+	tests := []struct {
+		name           string
+		setupAPI       func() CloudflareAPIInterface
+		expectError    bool
+		expectedErrMsg string
+	}{
+		{
+			name: "nil API client",
+			setupAPI: func() CloudflareAPIInterface {
+				return nil
+			},
+			expectError:    true,
+			expectedErrMsg: "cloudflare API client not initialized",
+		},
+		{
+			name: "API returns error",
+			setupAPI: func() CloudflareAPIInterface {
+				mockAPI := &SimpleMockCloudflareAPI{}
+				mockAPI.On("VerifyAPIToken", mock.Anything).Return(cloudflare.APITokenVerifyBody{}, errors.New("network error"))
+				return mockAPI
+			},
+			expectError:    true,
+			expectedErrMsg: "failed to verify API token",
+		},
+		{
+			name: "API token inactive",
+			setupAPI: func() CloudflareAPIInterface {
+				mockAPI := &SimpleMockCloudflareAPI{}
+				mockAPI.On("VerifyAPIToken", mock.Anything).Return(cloudflare.APITokenVerifyBody{
+					Status: "inactive",
+				}, nil)
+				return mockAPI
+			},
+			expectError:    true,
+			expectedErrMsg: "API token is not active",
+		},
+		{
+			name: "API token active",
+			setupAPI: func() CloudflareAPIInterface {
+				mockAPI := &SimpleMockCloudflareAPI{}
+				mockAPI.On("VerifyAPIToken", mock.Anything).Return(cloudflare.APITokenVerifyBody{
+					Status: "active",
+				}, nil)
+				return mockAPI
+			},
+			expectError: false,
+		},
 	}
 
-	req := httptest.NewRequest("GET", "/healthz", nil)
-	err := checker.LivenessCheck(req)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			checker := &Checker{
+				cloudflareAPI: tt.setupAPI(),
+			}
 
-	if err == nil {
-		t.Error("expected error when k8s client is nil, got nil")
+			err := checker.checkCloudflareAPI(context.Background())
+
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedErrMsg)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
 	}
 }
 
-func TestChecker_ReadinessCheck_WithNilDiscoveryClient(t *testing.T) {
-	k8sClient := fake.NewSimpleClientset()
-
-	checker := &Checker{
-		k8sClient:       k8sClient,
-		discoveryClient: nil,
-	}
-
-	req := httptest.NewRequest("GET", "/readyz", nil)
-	err := checker.ReadinessCheck(req)
-
-	if err == nil {
-		t.Error("expected error when discovery client is nil, got nil")
-	}
-}
-
-func TestChecker_GetHealthzHandler(t *testing.T) {
+func TestChecker_GetHandlers_Simple(t *testing.T) {
 	checker := &Checker{}
 
-	handler := checker.GetHealthzHandler()
+	t.Run("GetHealthzHandler", func(t *testing.T) {
+		handler := checker.GetHealthzHandler()
+		assert.NotNil(t, handler)
 
-	if handler == nil {
-		t.Error("expected non-nil handler, got nil")
-	}
-}
+		// Test the returned handler
+		req := httptest.NewRequest("GET", "/healthz", nil)
+		err := handler(req)
+		// Should error because no manager is set
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "manager is not initialized")
+	})
 
-func TestChecker_GetReadyzHandler(t *testing.T) {
-	checker := &Checker{}
+	t.Run("GetReadyzHandler", func(t *testing.T) {
+		handler := checker.GetReadyzHandler()
+		assert.NotNil(t, handler)
 
-	handler := checker.GetReadyzHandler()
-
-	if handler == nil {
-		t.Error("expected non-nil handler, got nil")
-	}
+		// Test the returned handler
+		req := httptest.NewRequest("GET", "/readyz", nil)
+		err := handler(req)
+		// Should error because no k8s client is set
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "kubernetes API not ready")
+	})
 }

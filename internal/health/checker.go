@@ -14,13 +14,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
+// CloudflareAPIInterface defines the methods we use from cloudflare.API
+type CloudflareAPIInterface interface {
+	VerifyAPIToken(ctx context.Context) (cloudflare.APITokenVerifyBody, error)
+}
+
 // Checker provides comprehensive health checking for the operator
 type Checker struct {
 	client.Client
 	k8sClient       kubernetes.Interface
 	discoveryClient discovery.DiscoveryInterface
 	manager         manager.Manager
-	cloudflareAPI   *cloudflare.API
+	cloudflareAPI   CloudflareAPIInterface
 }
 
 // NewChecker creates a new health checker instance

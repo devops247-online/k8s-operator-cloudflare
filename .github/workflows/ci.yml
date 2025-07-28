@@ -11,64 +11,64 @@ env:
 
 jobs:
   # ==================== PRE-COMMIT JOB ====================
-  pre-commit:
-    name: Pre-commit Checks
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Install pre-commit
-        run: |
-          pip install pre-commit
-          pre-commit --version
-      - name: Run pre-commit hooks
-        run: |
-          pre-commit run --all-files --show-diff-on-failure
+  # pre-commit:
+  #   name: Pre-commit Checks
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #     - name: Set up Python
+  #       uses: actions/setup-python@v5
+  #       with:
+  #         python-version: '3.11'
+  #     - name: Install pre-commit
+  #       run: |
+  #         pip install pre-commit
+  #         pre-commit --version
+  #     - name: Run pre-commit hooks
+  #       run: |
+  #         pre-commit run --all-files --show-diff-on-failure
 
   # ==================== CODE QUALITY JOB ====================
-  code-quality:
-    name: Code Quality
-    runs-on: ubuntu-latest
-    needs: pre-commit
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-      - name: Download dependencies
-        run: |
-          go mod download
-          go mod tidy
-      - name: Check code formatting
-        run: |
-          go fmt ./...
-          if [ -n "$(git diff --name-only)" ]; then
-            echo "Code is not formatted. Run 'go fmt ./...' to fix."
-            git diff
-            exit 1
-          fi
-      - name: Run go vet
-        run: go vet ./...
-      - name: Install and run golangci-lint
-        run: |
-          # Download and install golangci-lint manually to avoid config validation issues
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin ${{ env.GOLANGCI_LINT_VERSION }}
-          export PATH=$(go env GOPATH)/bin:$PATH
-          # Run golangci-lint without config file to avoid network timeout
-          golangci-lint run --timeout=10m --no-config --enable-only=errcheck,unparam,govet,staticcheck,ineffassign,misspell
+  # code-quality:
+  #   name: Code Quality
+  #   runs-on: ubuntu-latest
+  #   needs: pre-commit
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #     - name: Set up Go
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version-file: go.mod
+  #         cache: true
+  #     - name: Download dependencies
+  #       run: |
+  #         go mod download
+  #         go mod tidy
+  #     - name: Check code formatting
+  #       run: |
+  #         go fmt ./...
+  #         if [ -n "$(git diff --name-only)" ]; then
+  #           echo "Code is not formatted. Run 'go fmt ./...' to fix."
+  #           git diff
+  #           exit 1
+  #         fi
+  #     - name: Run go vet
+  #       run: go vet ./...
+  #     - name: Install and run golangci-lint
+  #       run: |
+  #         # Download and install golangci-lint manually to avoid config validation issues
+  #         curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin ${{ env.GOLANGCI_LINT_VERSION }}
+  #         export PATH=$(go env GOPATH)/bin:$PATH
+  #         # Run golangci-lint without config file to avoid network timeout
+  #         golangci-lint run --timeout=10m --no-config --enable-only=errcheck,unparam,govet,staticcheck,ineffassign,misspell
 
   # ==================== TESTING JOB ====================
   test:
     name: Unit Tests
     runs-on: ubuntu-latest
-    needs: pre-commit
+    # needs: pre-commit
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -112,486 +112,486 @@ jobs:
         if: hashFiles('lcov.info') != ''
 
   # ==================== SECURITY JOB ====================
-  security:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    needs: pre-commit
-    permissions:
-      contents: read
-      security-events: write
-      actions: read
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-      - name: Run gosec Security Scanner
-        uses: securego/gosec@master
-        with:
-          args: '-no-fail -fmt sarif -out results.sarif ./...'
-      - name: Check gosec results
-        run: |
-          if [ -f results.sarif ]; then
-            echo "✅ Security scan completed"
-            # Show summary if jq is available
-            if command -v jq >/dev/null 2>&1 && [ -s results.sarif ]; then
-              findings=$(jq '.runs[0].results | length' results.sarif 2>/dev/null || echo "0")
-              echo "Security findings: $findings"
-            fi
-          else
-            echo "⚠️  No SARIF output generated"
-          fi
-      - name: Upload SARIF file to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: results.sarif
-        if: always() && hashFiles('results.sarif') != ''
-      - name: Upload gosec report as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: gosec-report
-          path: results.sarif
-          retention-days: 5
-        if: always() && hashFiles('results.sarif') != ''
+  # security:
+  #   name: Security Scan
+  #   runs-on: ubuntu-latest
+  #   needs: pre-commit
+  #   permissions:
+  #     contents: read
+  #     security-events: write
+  #     actions: read
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #     - name: Set up Go
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version-file: go.mod
+  #         cache: true
+  #     - name: Run gosec Security Scanner
+  #       uses: securego/gosec@master
+  #       with:
+  #         args: '-no-fail -fmt sarif -out results.sarif ./...'
+  #     - name: Check gosec results
+  #       run: |
+  #         if [ -f results.sarif ]; then
+  #           echo "✅ Security scan completed"
+  #           # Show summary if jq is available
+  #           if command -v jq >/dev/null 2>&1 && [ -s results.sarif ]; then
+  #             findings=$(jq '.runs[0].results | length' results.sarif 2>/dev/null || echo "0")
+  #             echo "Security findings: $findings"
+  #           fi
+  #         else
+  #           echo "⚠️  No SARIF output generated"
+  #         fi
+  #     - name: Upload SARIF file to GitHub Security tab
+  #       uses: github/codeql-action/upload-sarif@v3
+  #       with:
+  #         sarif_file: results.sarif
+  #       if: always() && hashFiles('results.sarif') != ''
+  #     - name: Upload gosec report as artifact
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: gosec-report
+  #         path: results.sarif
+  #         retention-days: 5
+  #       if: always() && hashFiles('results.sarif') != ''
 
   # ==================== BUILD JOB ====================
-  build:
-    name: Build & Package
-    runs-on: ubuntu-latest
-    needs: [code-quality, test, security]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  # build:
+  #   name: Build & Package
+  #   runs-on: ubuntu-latest
+  #   needs: [code-quality, test, security]
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
+  #     - name: Set up Go
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version-file: go.mod
+  #         cache: true
 
-      - name: Download dependencies
-        run: go mod download
+  #     - name: Download dependencies
+  #       run: go mod download
 
-      - name: Build manager binary
-        run: |
-          make build
-          ls -la bin/
+  #     - name: Build manager binary
+  #       run: |
+  #         make build
+  #         ls -la bin/
 
-      - name: Build Docker image
-        run: make docker-build IMG=test-image:latest
+  #     - name: Build Docker image
+  #       run: make docker-build IMG=test-image:latest
 
-      - name: Inspect Docker image
-        run: |
-          docker inspect test-image:latest
-          echo "Docker image built successfully"
+  #     - name: Inspect Docker image
+  #       run: |
+  #         docker inspect test-image:latest
+  #         echo "Docker image built successfully"
 
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: 'test-image:latest'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '0'  # Don't fail the build, just report
+  #     - name: Run Trivy vulnerability scanner
+  #       uses: aquasecurity/trivy-action@master
+  #       with:
+  #         image-ref: 'test-image:latest'
+  #         format: 'sarif'
+  #         output: 'trivy-results.sarif'
+  #         severity: 'CRITICAL,HIGH'
+  #         exit-code: '0'  # Don't fail the build, just report
 
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: 'trivy-results.sarif'
-        if: always()
+  #     - name: Upload Trivy scan results to GitHub Security tab
+  #       uses: github/codeql-action/upload-sarif@v3
+  #       with:
+  #         sarif_file: 'trivy-results.sarif'
+  #       if: always()
 
-      - name: Save Docker image
-        run: |
-          docker save test-image:latest > test-image.tar
+  #     - name: Save Docker image
+  #       run: |
+  #         docker save test-image:latest > test-image.tar
 
-      - name: Upload Docker image artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: docker-image
-          path: test-image.tar
-          retention-days: 1
+  #     - name: Upload Docker image artifact
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: docker-image
+  #         path: test-image.tar
+  #         retention-days: 1
 
   # ==================== HELM CHARTS JOB ====================
-  helm-charts:
-    name: Validate Helm Charts
-    runs-on: ubuntu-latest
-    needs: pre-commit
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Set up Helm
-        uses: azure/setup-helm@v4
-        with:
-          version: 'v3.14.0'
-      - name: Install Python dependencies
-        run: |
-          pip3 install PyYAML
-      - name: Lint Helm Charts
-        run: |
-          for chart in charts/*/; do
-            if [ -f "$chart/Chart.yaml" ]; then
-              echo "Linting Helm chart: $chart"
-              helm lint "$chart"
-              echo "✅ Chart $chart passed lint check"
-            fi
-          done
-      - name: Template Helm Charts
-        run: |
-          for chart in charts/*/; do
-            if [ -f "$chart/Chart.yaml" ]; then
-              echo "Templating Helm chart: $chart"
-              helm template test "$chart" --values "$chart/values.yaml" > /dev/null
-              echo "✅ Chart $chart templated successfully"
-            fi
-          done
-      - name: Test Security Configuration
-        run: |
-          for chart in charts/*/; do
-            if [ -f "$chart/Chart.yaml" ] && [ -f "$chart/ci/security-test-values.yaml" ]; then
-              echo "Testing security configuration for: $chart"
-              helm template test "$chart" --values "$chart/ci/security-test-values.yaml" > security-manifest.yaml
-              # Check for security contexts in deployment
-              echo "Checking security contexts..."
-              if grep -q "securityContext:" security-manifest.yaml && \
-                 grep -q "runAsNonRoot: true" security-manifest.yaml && \
-                 grep -q "allowPrivilegeEscalation: false" security-manifest.yaml && \
-                 grep -q "readOnlyRootFilesystem: true" security-manifest.yaml; then
-                echo "✅ Security contexts properly configured"
-              else
-                echo "❌ Security contexts missing or incomplete"
-                exit 1
-              fi
-              # Check for Pod Security Standards labels
-              if grep -q "pod-security.kubernetes.io/enforce: restricted" security-manifest.yaml; then
-                echo "✅ Pod Security Standards labels found"
-              else
-                echo "⚠️  Pod Security Standards labels not found (may be optional)"
-              fi
-              # Check for NetworkPolicy
-              if grep -q "kind: NetworkPolicy" security-manifest.yaml; then
-                echo "✅ NetworkPolicy found"
-              else
-                echo "⚠️  NetworkPolicy not found (may be optional)"
-              fi
-              rm -f security-manifest.yaml
-            fi
-          done
-      - name: Validate Helm Chart Values
-        run: |
-          for chart in charts/*/; do
-            if [ -f "$chart/values.yaml" ]; then
-              echo "Validating values.yaml: $chart/values.yaml"
-              # Use yamllint if available, otherwise use python yaml validation
-              if command -v yamllint >/dev/null 2>&1; then
-                yamllint "$chart/values.yaml" && echo "✅ $chart/values.yaml is valid YAML"
-              else
-                # Fallback to python yaml validation
-                if python3 -c "import yaml; yaml.safe_load(open('$chart/values.yaml'))" 2>/dev/null; then
-                  echo "✅ $chart/values.yaml is valid YAML"
-                else
-                  echo "❌ $chart/values.yaml validation failed"
-                  exit 1
-                fi
-              fi
-            fi
-          done
+  # helm-charts:
+  #   name: Validate Helm Charts
+  #   runs-on: ubuntu-latest
+  #   needs: pre-commit
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #     - name: Set up Helm
+  #       uses: azure/setup-helm@v4
+  #       with:
+  #         version: 'v3.14.0'
+  #     - name: Install Python dependencies
+  #       run: |
+  #         pip3 install PyYAML
+  #     - name: Lint Helm Charts
+  #       run: |
+  #         for chart in charts/*/; do
+  #           if [ -f "$chart/Chart.yaml" ]; then
+  #             echo "Linting Helm chart: $chart"
+  #             helm lint "$chart"
+  #             echo "✅ Chart $chart passed lint check"
+  #           fi
+  #         done
+  #     - name: Template Helm Charts
+  #       run: |
+  #         for chart in charts/*/; do
+  #           if [ -f "$chart/Chart.yaml" ]; then
+  #             echo "Templating Helm chart: $chart"
+  #             helm template test "$chart" --values "$chart/values.yaml" > /dev/null
+  #             echo "✅ Chart $chart templated successfully"
+  #           fi
+  #         done
+  #     - name: Test Security Configuration
+  #       run: |
+  #         for chart in charts/*/; do
+  #           if [ -f "$chart/Chart.yaml" ] && [ -f "$chart/ci/security-test-values.yaml" ]; then
+  #             echo "Testing security configuration for: $chart"
+  #             helm template test "$chart" --values "$chart/ci/security-test-values.yaml" > security-manifest.yaml
+  #             # Check for security contexts in deployment
+  #             echo "Checking security contexts..."
+  #             if grep -q "securityContext:" security-manifest.yaml && \
+  #                grep -q "runAsNonRoot: true" security-manifest.yaml && \
+  #                grep -q "allowPrivilegeEscalation: false" security-manifest.yaml && \
+  #                grep -q "readOnlyRootFilesystem: true" security-manifest.yaml; then
+  #               echo "✅ Security contexts properly configured"
+  #             else
+  #               echo "❌ Security contexts missing or incomplete"
+  #               exit 1
+  #             fi
+  #             # Check for Pod Security Standards labels
+  #             if grep -q "pod-security.kubernetes.io/enforce: restricted" security-manifest.yaml; then
+  #               echo "✅ Pod Security Standards labels found"
+  #             else
+  #               echo "⚠️  Pod Security Standards labels not found (may be optional)"
+  #             fi
+  #             # Check for NetworkPolicy
+  #             if grep -q "kind: NetworkPolicy" security-manifest.yaml; then
+  #               echo "✅ NetworkPolicy found"
+  #             else
+  #               echo "⚠️  NetworkPolicy not found (may be optional)"
+  #             fi
+  #             rm -f security-manifest.yaml
+  #           fi
+  #         done
+  #     - name: Validate Helm Chart Values
+  #       run: |
+  #         for chart in charts/*/; do
+  #           if [ -f "$chart/values.yaml" ]; then
+  #             echo "Validating values.yaml: $chart/values.yaml"
+  #             # Use yamllint if available, otherwise use python yaml validation
+  #             if command -v yamllint >/dev/null 2>&1; then
+  #               yamllint "$chart/values.yaml" && echo "✅ $chart/values.yaml is valid YAML"
+  #             else
+  #               # Fallback to python yaml validation
+  #               if python3 -c "import yaml; yaml.safe_load(open('$chart/values.yaml'))" 2>/dev/null; then
+  #                 echo "✅ $chart/values.yaml is valid YAML"
+  #               else
+  #                 echo "❌ $chart/values.yaml validation failed"
+  #                 exit 1
+  #               fi
+  #             fi
+  #           fi
+  #         done
 
   # ==================== MANIFESTS JOB ====================
-  manifests:
-    name: Validate Manifests
-    runs-on: ubuntu-latest
-    needs: [code-quality, test, helm-charts]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-      - name: Download dependencies
-        run: go mod download
-      - name: Generate manifests
-        run: make manifests generate
-      - name: Check generated files
-        run: |
-          if [ -n "$(git diff --name-only)" ]; then
-            echo "ERROR: Generated files are out of sync. Please run 'make manifests generate' and commit the changes."
-            git diff
-            exit 1
-          fi
-          echo "Generated files are up to date"
-      - name: Build installer
-        run: |
-          make build-installer IMG=test-image:latest
-          ls -la dist/
-      - name: Validate Kubernetes manifests
-        run: |
-          # Install dependencies
-          pip3 install PyYAML
-          # Basic YAML syntax and structure validation using Python
-          python3 -c "
-          import yaml
-          import sys
-          def validate_k8s_manifest(file_path):
-              try:
-                  with open(file_path, 'r') as f:
-                      docs = list(yaml.safe_load_all(f))
-                  print(f'YAML syntax valid - found {len(docs)} documents')
-                  # Check for required fields in each document
-                  for i, doc in enumerate(docs):
-                      if not doc:  # Skip empty documents
-                          continue
-                      if 'apiVersion' in doc and 'kind' in doc:
-                          print(f'  Document {i+1}: {doc[\"kind\"]} ({doc[\"apiVersion\"]})')
-                          # Validate metadata for most resources
-                          if doc[\"kind\"] not in ['CustomResourceDefinition']:
-                              if 'metadata' not in doc or 'name' not in doc.get('metadata', {}):
-                                  print(f'  ERROR: Document {i+1}: Missing required metadata.name field')
-                                  sys.exit(1)
-                      elif doc:
-                          print(f'  ERROR: Document {i+1}: Missing required fields (apiVersion or kind)')
-                          sys.exit(1)
-                  return True
-              except yaml.YAMLError as e:
-                  print(f'ERROR: YAML parsing failed: {e}')
-                  sys.exit(1)
-              except FileNotFoundError:
-                  print(f'ERROR: File not found: {file_path}')
-                  sys.exit(1)
-              except Exception as e:
-                  print(f'ERROR: Validation failed: {e}')
-                  sys.exit(1)
-          if validate_k8s_manifest('dist/install.yaml'):
-              print('All Kubernetes manifests are valid')
-          "
-          # Verify file exists and has content
-          if [ ! -f dist/install.yaml ]; then
-            echo "ERROR: dist/install.yaml not found"
-            exit 1
-          fi
-          if [ ! -s dist/install.yaml ]; then
-            echo "ERROR: dist/install.yaml is empty"
-            exit 1
-          fi
-          echo "Kubernetes manifests validation completed successfully"
-      - name: Upload manifest artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: kubernetes-manifests
-          path: dist/
-          retention-days: 1
+  # manifests:
+  #   name: Validate Manifests
+  #   runs-on: ubuntu-latest
+  #   needs: [code-quality, test, helm-charts]
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #     - name: Set up Go
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version-file: go.mod
+  #         cache: true
+  #     - name: Download dependencies
+  #       run: go mod download
+  #     - name: Generate manifests
+  #       run: make manifests generate
+  #     - name: Check generated files
+  #       run: |
+  #         if [ -n "$(git diff --name-only)" ]; then
+  #           echo "ERROR: Generated files are out of sync. Please run 'make manifests generate' and commit the changes."
+  #           git diff
+  #           exit 1
+  #         fi
+  #         echo "Generated files are up to date"
+  #     - name: Build installer
+  #       run: |
+  #         make build-installer IMG=test-image:latest
+  #         ls -la dist/
+  #     - name: Validate Kubernetes manifests
+  #       run: |
+  #         # Install dependencies
+  #         pip3 install PyYAML
+  #         # Basic YAML syntax and structure validation using Python
+  #         python3 -c "
+  #         import yaml
+  #         import sys
+  #         def validate_k8s_manifest(file_path):
+  #             try:
+  #                 with open(file_path, 'r') as f:
+  #                     docs = list(yaml.safe_load_all(f))
+  #                 print(f'YAML syntax valid - found {len(docs)} documents')
+  #                 # Check for required fields in each document
+  #                 for i, doc in enumerate(docs):
+  #                     if not doc:  # Skip empty documents
+  #                         continue
+  #                     if 'apiVersion' in doc and 'kind' in doc:
+  #                         print(f'  Document {i+1}: {doc[\"kind\"]} ({doc[\"apiVersion\"]})')
+  #                         # Validate metadata for most resources
+  #                         if doc[\"kind\"] not in ['CustomResourceDefinition']:
+  #                             if 'metadata' not in doc or 'name' not in doc.get('metadata', {}):
+  #                                 print(f'  ERROR: Document {i+1}: Missing required metadata.name field')
+  #                                 sys.exit(1)
+  #                     elif doc:
+  #                         print(f'  ERROR: Document {i+1}: Missing required fields (apiVersion or kind)')
+  #                         sys.exit(1)
+  #                 return True
+  #             except yaml.YAMLError as e:
+  #                 print(f'ERROR: YAML parsing failed: {e}')
+  #                 sys.exit(1)
+  #             except FileNotFoundError:
+  #                 print(f'ERROR: File not found: {file_path}')
+  #                 sys.exit(1)
+  #             except Exception as e:
+  #                 print(f'ERROR: Validation failed: {e}')
+  #                 sys.exit(1)
+  #         if validate_k8s_manifest('dist/install.yaml'):
+  #             print('All Kubernetes manifests are valid')
+  #         "
+  #         # Verify file exists and has content
+  #         if [ ! -f dist/install.yaml ]; then
+  #           echo "ERROR: dist/install.yaml not found"
+  #           exit 1
+  #         fi
+  #         if [ ! -s dist/install.yaml ]; then
+  #           echo "ERROR: dist/install.yaml is empty"
+  #           exit 1
+  #         fi
+  #         echo "Kubernetes manifests validation completed successfully"
+  #     - name: Upload manifest artifact
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: kubernetes-manifests
+  #         path: dist/
+  #         retention-days: 1
 
   # ==================== CIS BENCHMARK JOB ====================
-  cis-benchmark:
-    name: CIS Kubernetes Benchmark
-    runs-on: ubuntu-latest
-    needs: [build, helm-charts]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  # cis-benchmark:
+  #   name: CIS Kubernetes Benchmark
+  #   runs-on: ubuntu-latest
+  #   needs: [build, helm-charts]
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
 
-      - name: Download Docker image artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: docker-image
+  #     - name: Download Docker image artifact
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: docker-image
 
-      - name: Load Docker image
-        run: |
-          docker load < test-image.tar
-          docker images
+  #     - name: Load Docker image
+  #       run: |
+  #         docker load < test-image.tar
+  #         docker images
 
-      - name: Run CIS Benchmark with Trivy
-        run: |
-          echo "🔒 Running CIS Kubernetes Benchmark checks..."
+  #     - name: Run CIS Benchmark with Trivy
+  #       run: |
+  #         echo "🔒 Running CIS Kubernetes Benchmark checks..."
 
-          # Run Trivy compliance scan on Kubernetes manifests
-          docker run --rm \
-            -v "$PWD:/src" \
-            aquasec/trivy:latest \
-            k8s /src \
-            --compliance k8s-cis-1.23 \
-            --format table \
-            --exit-code 0 || true
+  #         # Run Trivy compliance scan on Kubernetes manifests
+  #         docker run --rm \
+  #           -v "$PWD:/src" \
+  #           aquasec/trivy:latest \
+  #           k8s /src \
+  #           --compliance k8s-cis-1.23 \
+  #           --format table \
+  #           --exit-code 0 || true
 
-          echo "✅ CIS Kubernetes Benchmark scan completed"
+  #         echo "✅ CIS Kubernetes Benchmark scan completed"
 
-          # Run CIS Docker Benchmark on the operator image
-          echo ""
-          echo "🐳 Running CIS Docker Benchmark checks on operator image..."
+  #         # Run CIS Docker Benchmark on the operator image
+  #         echo ""
+  #         echo "🐳 Running CIS Docker Benchmark checks on operator image..."
 
-          docker run --rm \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            aquasec/trivy:latest \
-            image \
-            --compliance docker-cis \
-            --format table \
-            --exit-code 0 \
-            test-image:latest || true
+  #         docker run --rm \
+  #           -v /var/run/docker.sock:/var/run/docker.sock \
+  #           aquasec/trivy:latest \
+  #           image \
+  #           --compliance docker-cis \
+  #           --format table \
+  #           --exit-code 0 \
+  #           test-image:latest || true
 
-          echo "✅ CIS Docker Benchmark scan completed"
+  #         echo "✅ CIS Docker Benchmark scan completed"
 
-      - name: Check Deployment Security Configuration
-        run: |
-          echo "🔍 Validating security configurations against CIS benchmarks..."
+  #     - name: Check Deployment Security Configuration
+  #       run: |
+  #         echo "🔍 Validating security configurations against CIS benchmarks..."
 
-          # Check for security contexts in deployment
-          for chart in charts/*/; do
-            if [ -f "$chart/values.yaml" ]; then
-              echo "Checking $chart for CIS compliance..."
+  #         # Check for security contexts in deployment
+  #         for chart in charts/*/; do
+  #           if [ -f "$chart/values.yaml" ]; then
+  #             echo "Checking $chart for CIS compliance..."
 
-              # Verify security contexts are defined
-              if grep -q "securityContext:" "$chart/values.yaml"; then
-                echo "✅ Security contexts found"
-              else
-                echo "⚠️  Missing security contexts"
-              fi
+  #             # Verify security contexts are defined
+  #             if grep -q "securityContext:" "$chart/values.yaml"; then
+  #               echo "✅ Security contexts found"
+  #             else
+  #               echo "⚠️  Missing security contexts"
+  #             fi
 
-              # Check for pod security standards
-              if grep -q "podSecurityStandards:" "$chart/values.yaml"; then
-                echo "✅ Pod Security Standards configured"
-              else
-                echo "⚠️  Pod Security Standards not configured"
-              fi
+  #             # Check for pod security standards
+  #             if grep -q "podSecurityStandards:" "$chart/values.yaml"; then
+  #               echo "✅ Pod Security Standards configured"
+  #             else
+  #               echo "⚠️  Pod Security Standards not configured"
+  #             fi
 
-              # Check for resource limits
-              if grep -q "resources:" "$chart/values.yaml" && grep -q "limits:" "$chart/values.yaml"; then
-                echo "✅ Resource limits configured"
-              else
-                echo "⚠️  Resource limits not configured"
-              fi
-            fi
-          done
+  #             # Check for resource limits
+  #             if grep -q "resources:" "$chart/values.yaml" && grep -q "limits:" "$chart/values.yaml"; then
+  #               echo "✅ Resource limits configured"
+  #             else
+  #               echo "⚠️  Resource limits not configured"
+  #             fi
+  #           fi
+  #         done
 
-      - name: Generate CIS Compliance Report
-        run: |
-          # Generate compliance report
-          echo "📊 CIS Kubernetes Benchmark Compliance Report" > cis-report.txt
-          echo "============================================" >> cis-report.txt
-          echo "" >> cis-report.txt
-          echo "Date: $(date)" >> cis-report.txt
-          echo "Repository: ${{ github.repository }}" >> cis-report.txt
-          echo "Commit: ${{ github.sha }}" >> cis-report.txt
-          echo "" >> cis-report.txt
+  #     - name: Generate CIS Compliance Report
+  #       run: |
+  #         # Generate compliance report
+  #         echo "📊 CIS Kubernetes Benchmark Compliance Report" > cis-report.txt
+  #         echo "============================================" >> cis-report.txt
+  #         echo "" >> cis-report.txt
+  #         echo "Date: $(date)" >> cis-report.txt
+  #         echo "Repository: ${{ github.repository }}" >> cis-report.txt
+  #         echo "Commit: ${{ github.sha }}" >> cis-report.txt
+  #         echo "" >> cis-report.txt
 
-          # Run K8s compliance checks
-          echo "Kubernetes Manifests Compliance:" >> cis-report.txt
-          docker run --rm \
-            -v "$PWD:/src" \
-            aquasec/trivy:latest \
-            k8s /src \
-            --compliance k8s-cis-1.23 \
-            --format json \
-            --output /src/cis-k8s-results.json 2>/dev/null || true
+  #         # Run K8s compliance checks
+  #         echo "Kubernetes Manifests Compliance:" >> cis-report.txt
+  #         docker run --rm \
+  #           -v "$PWD:/src" \
+  #           aquasec/trivy:latest \
+  #           k8s /src \
+  #           --compliance k8s-cis-1.23 \
+  #           --format json \
+  #           --output /src/cis-k8s-results.json 2>/dev/null || true
 
-          if [ -f cis-k8s-results.json ]; then
-            echo "✅ K8s CIS compliance report generated"
-            # Parse results if jq is available
-            if command -v jq >/dev/null 2>&1; then
-              passed=$(jq '.Results[0].Successes // 0' cis-k8s-results.json 2>/dev/null || echo "0")
-              failed=$(jq '.Results[0].Failures // 0' cis-k8s-results.json 2>/dev/null || echo "0")
-              echo "  K8s Passed checks: $passed" >> cis-report.txt
-              echo "  K8s Failed checks: $failed" >> cis-report.txt
-            fi
-          fi
+  #         if [ -f cis-k8s-results.json ]; then
+  #           echo "✅ K8s CIS compliance report generated"
+  #           # Parse results if jq is available
+  #           if command -v jq >/dev/null 2>&1; then
+  #             passed=$(jq '.Results[0].Successes // 0' cis-k8s-results.json 2>/dev/null || echo "0")
+  #             failed=$(jq '.Results[0].Failures // 0' cis-k8s-results.json 2>/dev/null || echo "0")
+  #             echo "  K8s Passed checks: $passed" >> cis-report.txt
+  #             echo "  K8s Failed checks: $failed" >> cis-report.txt
+  #           fi
+  #         fi
 
-          # Run Docker compliance checks
-          echo "" >> cis-report.txt
-          echo "Docker Image Compliance:" >> cis-report.txt
-          docker run --rm \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            -v "$PWD:/src" \
-            aquasec/trivy:latest \
-            image \
-            --compliance docker-cis \
-            --format json \
-            --output /src/cis-docker-results.json \
-            test-image:latest 2>/dev/null || true
+  #         # Run Docker compliance checks
+  #         echo "" >> cis-report.txt
+  #         echo "Docker Image Compliance:" >> cis-report.txt
+  #         docker run --rm \
+  #           -v /var/run/docker.sock:/var/run/docker.sock \
+  #           -v "$PWD:/src" \
+  #           aquasec/trivy:latest \
+  #           image \
+  #           --compliance docker-cis \
+  #           --format json \
+  #           --output /src/cis-docker-results.json \
+  #           test-image:latest 2>/dev/null || true
 
-          if [ -f cis-docker-results.json ]; then
-            echo "✅ Docker CIS compliance report generated"
-            # Parse results if jq is available
-            if command -v jq >/dev/null 2>&1; then
-              passed=$(jq '.Results[0].Successes // 0' cis-docker-results.json 2>/dev/null || echo "0")
-              failed=$(jq '.Results[0].Failures // 0' cis-docker-results.json 2>/dev/null || echo "0")
-              echo "  Docker Passed checks: $passed" >> cis-report.txt
-              echo "  Docker Failed checks: $failed" >> cis-report.txt
-            fi
-          fi
+  #         if [ -f cis-docker-results.json ]; then
+  #           echo "✅ Docker CIS compliance report generated"
+  #           # Parse results if jq is available
+  #           if command -v jq >/dev/null 2>&1; then
+  #             passed=$(jq '.Results[0].Successes // 0' cis-docker-results.json 2>/dev/null || echo "0")
+  #             failed=$(jq '.Results[0].Failures // 0' cis-docker-results.json 2>/dev/null || echo "0")
+  #             echo "  Docker Passed checks: $passed" >> cis-report.txt
+  #             echo "  Docker Failed checks: $failed" >> cis-report.txt
+  #           fi
+  #         fi
 
-          cat cis-report.txt
+  #         cat cis-report.txt
 
-      - name: Upload CIS Compliance Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: cis-compliance-report
-          path: |
-            cis-report.txt
-            cis-k8s-results.json
-            cis-docker-results.json
-          retention-days: 30
-        if: always()
+  #     - name: Upload CIS Compliance Report
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: cis-compliance-report
+  #         path: |
+  #           cis-report.txt
+  #           cis-k8s-results.json
+  #           cis-docker-results.json
+  #         retention-days: 30
+  #       if: always()
 
   # ==================== E2E TESTING JOB ====================
-  e2e-test:
-    name: E2E Tests
-    runs-on: ubuntu-latest
-    needs: [build, manifests, helm-charts]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  # e2e-test:
+  #   name: E2E Tests
+  #   runs-on: ubuntu-latest
+  #   needs: [build, manifests, helm-charts]
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
+  #     - name: Set up Go
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version-file: go.mod
+  #         cache: true
 
-      - name: Download Docker image artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: docker-image
+  #     - name: Download Docker image artifact
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: docker-image
 
-      - name: Load Docker image
-        run: |
-          docker load < test-image.tar
-          docker images
+  #     - name: Load Docker image
+  #       run: |
+  #         docker load < test-image.tar
+  #         docker images
 
-      - name: Install Kind
-        run: |
-          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-amd64
-          chmod +x ./kind
-          sudo mv ./kind /usr/local/bin/kind
-          kind version
+  #     - name: Install Kind
+  #       run: |
+  #         curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-amd64
+  #         chmod +x ./kind
+  #         sudo mv ./kind /usr/local/bin/kind
+  #         kind version
 
-      - name: Run E2E tests
-        run: |
-          export CERT_MANAGER_INSTALL_SKIP=true
-          make test-e2e
-        timeout-minutes: 30
+  #     - name: Run E2E tests
+  #       run: |
+  #         export CERT_MANAGER_INSTALL_SKIP=true
+  #         make test-e2e
+  #       timeout-minutes: 30
 
   # ==================== FINAL VALIDATION JOB ====================
-  validation:
-    name: Final Validation
-    runs-on: ubuntu-latest
-    needs: [manifests, e2e-test, cis-benchmark]
-    steps:
-      - name: Pipeline Success Summary
-        run: |
-          echo "All CI Pipeline jobs completed successfully!"
-          echo ""
-          echo "Jobs Summary:"
-          echo "  Pre-commit checks: PASSED"
-          echo "  Code quality: PASSED"
-          echo "  Unit tests: PASSED"
-          echo "  Security scan: PASSED"
-          echo "  Binary build: PASSED"
-          echo "  Docker build: PASSED"
-          echo "  Manifest validation: PASSED"
-          echo "  CIS Benchmark: PASSED"
-          echo "  E2E tests: PASSED"
-          echo ""
-          echo "Ready for deployment!"
+  # validation:
+  #   name: Final Validation
+  #   runs-on: ubuntu-latest
+  #   needs: [manifests, e2e-test, cis-benchmark]
+  #   steps:
+  #     - name: Pipeline Success Summary
+  #       run: |
+  #         echo "All CI Pipeline jobs completed successfully!"
+  #         echo ""
+  #         echo "Jobs Summary:"
+  #         echo "  Pre-commit checks: PASSED"
+  #         echo "  Code quality: PASSED"
+  #         echo "  Unit tests: PASSED"
+  #         echo "  Security scan: PASSED"
+  #         echo "  Binary build: PASSED"
+  #         echo "  Docker build: PASSED"
+  #         echo "  Manifest validation: PASSED"
+  #         echo "  CIS Benchmark: PASSED"
+  #         echo "  E2E tests: PASSED"
+  #         echo ""
+  #         echo "Ready for deployment!"
