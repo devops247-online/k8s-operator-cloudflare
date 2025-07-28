@@ -5,7 +5,7 @@ metadata:
   labels:
     {{- include "cloudflare-dns-operator.labels" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: {{ if .Values.highAvailability.enabled }}{{ .Values.highAvailability.replicaCount }}{{ else }}{{ .Values.replicaCount }}{{ end }}
   selector:
     matchLabels:
       {{- include "cloudflare-dns-operator.selectorLabels" . | nindent 6 }}
@@ -39,10 +39,27 @@ spec:
           command:
             - /manager
           args:
-            - --leader-elect={{ .Values.operator.leaderElection }}
+            - --leader-elect={{ if .Values.highAvailability.enabled }}{{ .Values.highAvailability.leaderElection.enabled }}{{ else }}{{ .Values.operator.leaderElection }}{{ end }}
             - --metrics-bind-address={{ .Values.operator.metricsBindAddress }}
             - >-
               --health-probe-bind-address={{ .Values.operator.healthProbeBindAddress }}
+            {{- if .Values.highAvailability.enabled }}
+            {{- if .Values.highAvailability.leaderElection.leaseDuration }}
+            - --leader-elect-lease-duration={{ .Values.highAvailability.leaderElection.leaseDuration }}
+            {{- end }}
+            {{- if .Values.highAvailability.leaderElection.renewDeadline }}
+            - --leader-elect-renew-deadline={{ .Values.highAvailability.leaderElection.renewDeadline }}
+            {{- end }}
+            {{- if .Values.highAvailability.leaderElection.retryPeriod }}
+            - --leader-elect-retry-period={{ .Values.highAvailability.leaderElection.retryPeriod }}
+            {{- end }}
+            {{- if .Values.highAvailability.leaderElection.resourceName }}
+            - --leader-elect-resource-name={{ .Values.highAvailability.leaderElection.resourceName }}
+            {{- end }}
+            {{- if .Values.highAvailability.leaderElection.resourceNamespace }}
+            - --leader-elect-resource-namespace={{ .Values.highAvailability.leaderElection.resourceNamespace }}
+            {{- end }}
+            {{- end }}
           env:
             - name: CLOUDFLARE_EMAIL
               value: {{ .Values.cloudflare.email | quote }}
@@ -102,16 +119,48 @@ spec:
           volumeMounts:
             - mountPath: /tmp
               name: temp
+          {{- if and .Values.highAvailability.enabled .Values.highAvailability.gracefulShutdown.enabled }}
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - sleep {{ .Values.highAvailability.gracefulShutdown.preStopDelay }}
+          {{- end }}
       volumes:
         - name: temp
           emptyDir: {}
+      {{- if and .Values.highAvailability.enabled .Values.highAvailability.gracefulShutdown.enabled }}
+      terminationGracePeriodSeconds: {{ .Values.highAvailability.gracefulShutdown.terminationGracePeriodSeconds }}
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.affinity }}
+      {{- if or .Values.affinity (and .Values.highAvailability.enabled .Values.highAvailability.podAntiAffinity.enabled) }}
       affinity:
+        {{- if and .Values.highAvailability.enabled .Values.highAvailability.podAntiAffinity.enabled }}
+        podAntiAffinity:
+          {{- if eq .Values.highAvailability.podAntiAffinity.type "preferred" }}
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: {{ .Values.highAvailability.podAntiAffinity.weight }}
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    {{- include "cloudflare-dns-operator.selectorLabels" . | nindent 20 }}
+                topologyKey: {{ .Values.highAvailability.podAntiAffinity.topologyKey }}
+          {{- else if eq .Values.highAvailability.podAntiAffinity.type "required" }}
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  {{- include "cloudflare-dns-operator.selectorLabels" . | nindent 18 }}
+              topologyKey: {{ .Values.highAvailability.podAntiAffinity.topologyKey }}
+          {{- end }}
+        {{- end }}
+        {{- with .Values.affinity }}
         {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- end }}
       {{- with .Values.tolerations }}
       tolerations:
