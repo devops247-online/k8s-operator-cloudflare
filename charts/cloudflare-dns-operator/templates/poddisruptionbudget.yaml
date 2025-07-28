@@ -1,0 +1,17 @@
+{{- if and .Values.highAvailability.enabled .Values.highAvailability.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "cloudflare-dns-operator.fullname" . }}
+  labels:
+    {{- include "cloudflare-dns-operator.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "cloudflare-dns-operator.selectorLabels" . | nindent 6 }}
+  {{- if .Values.highAvailability.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ .Values.highAvailability.podDisruptionBudget.minAvailable }}
+  {{- else if .Values.highAvailability.podDisruptionBudget.maxUnavailable }}
+  maxUnavailable: {{ .Values.highAvailability.podDisruptionBudget.maxUnavailable }}
+  {{- end }}
+{{- end }}

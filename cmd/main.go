@@ -21,6 +21,7 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -64,6 +65,13 @@ func main() {
 	var secureMetrics bool
 	var enableHTTP2 bool
 	var tlsOpts []func(*tls.Config)
+
+	// Leader election configuration
+	var leaderElectLeaseDuration time.Duration
+	var leaderElectRenewDeadline time.Duration
+	var leaderElectRetryPeriod time.Duration
+	var leaderElectResourceName string
+	var leaderElectResourceNamespace string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -81,6 +89,18 @@ func main() {
 	flag.StringVar(&metricsCertKey, "metrics-cert-key", "tls.key", "The name of the metrics server key file.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+
+	// High Availability leader election flags
+	flag.DurationVar(&leaderElectLeaseDuration, "leader-elect-lease-duration", 15*time.Second,
+		"Duration that leader election lease is held (default 15s)")
+	flag.DurationVar(&leaderElectRenewDeadline, "leader-elect-renew-deadline", 10*time.Second,
+		"Duration that leader must renew the lease before losing it (default 10s)")
+	flag.DurationVar(&leaderElectRetryPeriod, "leader-elect-retry-period", 2*time.Second,
+		"Duration between retry attempts for leader election (default 2s)")
+	flag.StringVar(&leaderElectResourceName, "leader-elect-resource-name", "cloudflare-dns-operator-leader",
+		"Name of the resource used for leader election")
+	flag.StringVar(&leaderElectResourceNamespace, "leader-elect-resource-namespace", "",
+		"Namespace for leader election resource (empty means same as deployment namespace)")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -178,13 +198,23 @@ func main() {
 		})
 	}
 
+	// Configure leader election resource name and namespace
+	leaderElectionID := leaderElectResourceName
+	if leaderElectionID == "" {
+		leaderElectionID = "085fc383.cloudflare.io"
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		Metrics:                metricsServerOptions,
-		WebhookServer:          webhookServer,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "085fc383.cloudflare.io",
+		Scheme:                  scheme,
+		Metrics:                 metricsServerOptions,
+		WebhookServer:           webhookServer,
+		HealthProbeBindAddress:  probeAddr,
+		LeaderElection:          enableLeaderElection,
+		LeaderElectionID:        leaderElectionID,
+		LeaderElectionNamespace: leaderElectResourceNamespace,
+		LeaseDuration:           &leaderElectLeaseDuration,
+		RenewDeadline:           &leaderElectRenewDeadline,
+		RetryPeriod:             &leaderElectRetryPeriod,
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly

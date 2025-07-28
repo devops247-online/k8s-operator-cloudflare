@@ -1,0 +1,55 @@
+# High Availability test values
+# This file is used for testing HA configuration in CI/CD
+
+# Enable High Availability mode
+highAvailability:
+  enabled: true
+  replicaCount: 2
+
+  # Leader election configuration
+  leaderElection:
+    enabled: true
+    leaseDuration: 15s
+    renewDeadline: 10s
+    retryPeriod: 2s
+    resourceName: cloudflare-dns-operator-leader
+    resourceNamespace: ""
+
+  # Pod anti-affinity for spreading across nodes
+  podAntiAffinity:
+    enabled: true
+    type: preferred
+    weight: 100
+    topologyKey: kubernetes.io/hostname
+
+  # Pod Disruption Budget
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+  # Graceful shutdown configuration
+  gracefulShutdown:
+    enabled: true
+    terminationGracePeriodSeconds: 30
+    preStopDelay: 5s
+
+# Resource limits for HA deployment
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 200m
+    memory: 128Mi
+
+# Enable monitoring for HA
+monitoring:
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 10s
+
+# Test credentials (for CI only)
+cloudflare:
+  email: "test@example.com"
+  apiToken: "test-token-placeholder"

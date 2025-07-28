@@ -181,6 +181,57 @@ operator:
   # Enable webhook
   enableWebhook: false
 
+# High Availability configuration
+highAvailability:
+  # Enable High Availability mode
+  enabled: false
+  # Number of replicas for HA (minimum 2)
+  replicaCount: 2
+
+  # Leader election configuration
+  leaderElection:
+    # Enable leader election (required for HA)
+    enabled: true
+    # Lease duration (how long leader holds the lease)
+    leaseDuration: 15s
+    # Renew deadline (time leader has to renew the lease)
+    renewDeadline: 10s
+    # Retry period (time to wait between lease renewal attempts)
+    retryPeriod: 2s
+    # Resource name for leader election
+    resourceName: cloudflare-dns-operator-leader
+    # Resource namespace (empty means same as deployment namespace)
+    resourceNamespace: ""
+
+  # Pod anti-affinity for spreading across nodes
+  podAntiAffinity:
+    # Enable pod anti-affinity
+    enabled: true
+    # Preferred (soft) or required (hard) anti-affinity
+    type: preferred  # preferred or required
+    # Weight for preferred anti-affinity
+    weight: 100
+    # Topology key for anti-affinity
+    topologyKey: kubernetes.io/hostname
+
+  # Pod Disruption Budget
+  podDisruptionBudget:
+    # Enable PodDisruptionBudget
+    enabled: true
+    # Minimum available pods during disruptions
+    minAvailable: 1
+    # Alternative: maximum unavailable pods
+    # maxUnavailable: 1
+
+  # Graceful shutdown configuration
+  gracefulShutdown:
+    # Enable graceful shutdown
+    enabled: true
+    # Termination grace period in seconds
+    terminationGracePeriodSeconds: 30
+    # Pre-stop hook delay (allows time for load balancer updates)
+    preStopDelay: 5s
+
 # CRD installation
 crds:
   # Install CRDs as part of the Helm release
