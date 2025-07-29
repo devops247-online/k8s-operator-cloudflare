@@ -28,3 +28,6 @@ go.work
 *~
 dist/
 e2e-test-binary
+
+# Rendered manifests for CIS compliance scanning
+rendered-manifests/
