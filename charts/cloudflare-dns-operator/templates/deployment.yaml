@@ -79,6 +79,10 @@ spec:
             {{- end }}
             - name: LOG_LEVEL
               value: {{ .Values.operator.logLevel | quote }}
+            {{- if .Values.profiling.enabled }}
+            - name: ENABLE_PPROF
+              value: "true"
+            {{- end }}
             {{- if .Values.multitenancy.enabled }}
             - name: MULTITENANCY_ENABLED
               value: "true"
@@ -110,10 +114,16 @@ spec:
             - name: webhook
               containerPort: {{ .Values.operator.webhookPort }}
               protocol: TCP
+          {{- if .Values.healthChecks.enabled }}
           livenessProbe:
-            {{- toYaml .Values.livenessProbe | nindent 12 }}
+            {{- toYaml .Values.healthChecks.livenessProbe | nindent 12 }}
           readinessProbe:
-            {{- toYaml .Values.readinessProbe | nindent 12 }}
+            {{- toYaml .Values.healthChecks.readinessProbe | nindent 12 }}
+          {{- if .Values.healthChecks.startupProbe }}
+          startupProbe:
+            {{- toYaml .Values.healthChecks.startupProbe | nindent 12 }}
+          {{- end }}
+          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:

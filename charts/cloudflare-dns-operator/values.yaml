@@ -74,20 +74,49 @@ resources:
     cpu: 100m
     memory: 64Mi
 
-# Liveness and readiness probe configuration
-livenessProbe:
-  httpGet:
-    path: /healthz
-    port: 8081
-  initialDelaySeconds: 15
-  periodSeconds: 20
+# Health check configuration
+healthChecks:
+  enabled: true
 
-readinessProbe:
-  httpGet:
-    path: /readyz
-    port: 8081
-  initialDelaySeconds: 5
-  periodSeconds: 10
+  # Liveness probe configuration
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: 8081
+    initialDelaySeconds: 15
+    periodSeconds: 20
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+
+  # Readiness probe configuration
+  readinessProbe:
+    httpGet:
+      path: /readyz
+      port: 8081
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+
+  # Startup probe configuration (for slow-starting containers)
+  startupProbe:
+    httpGet:
+      path: /healthz
+      port: 8081
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 30
+    successThreshold: 1
+
+# Profiling configuration
+profiling:
+  # Enable pprof endpoints for debugging (only in development)
+  enabled: false
+  # Port for profiling endpoints
+  port: 6060
 
 nodeSelector: {}
 
