@@ -396,6 +396,172 @@ securityHardening:
       enabled: false
       url: ""
 
+# Horizontal Pod Autoscaler configuration
+horizontalPodAutoscaler:
+  # Enable HPA
+  enabled: false
+  # Minimum number of replicas
+  minReplicas: 1
+  # Maximum number of replicas
+  maxReplicas: 10
+  # Target CPU utilization percentage
+  targetCPUUtilizationPercentage: 80
+  # Target memory utilization percentage
+  targetMemoryUtilizationPercentage: 80
+
+  # Custom metrics configuration
+  customMetrics:
+    # Enable custom metrics for HPA decisions
+    enabled: false
+    # Metrics configuration
+    metrics:
+      # Queue depth metric (number of pending reconcile requests)
+      queueDepth:
+        enabled: true
+        targetValue: 10
+      # Reconcile rate metric (reconciles per second)
+      reconcileRate:
+        enabled: true
+        targetValue: 5
+      # Error rate metric (errors per minute)
+      errorRate:
+        enabled: true
+        targetValue: 2
+      # API response time metric (milliseconds)
+      apiResponseTime:
+        enabled: false
+        targetValue: 1000
+
+  # HPA behavior configuration (for Kubernetes 1.23+)
+  behavior:
+    # Scale up behavior
+    scaleUp:
+      # Policy for scaling up
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 60
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+      # Stabilization window for scale up
+      stabilizationWindowSeconds: 60
+      # Select policy with the highest change
+      selectPolicy: Max
+
+    # Scale down behavior
+    scaleDown:
+      # Policy for scaling down
+      policies:
+        - type: Percent
+          value: 10
+          periodSeconds: 60
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+      # Stabilization window for scale down
+      stabilizationWindowSeconds: 300
+      # Select policy with the lowest change
+      selectPolicy: Min
+
+# Performance tuning configuration
+performance:
+  # Controller performance settings
+  controller:
+    # Max concurrent reconciles
+    maxConcurrentReconciles: 5
+    # Reconcile timeout in seconds
+    reconcileTimeout: 300
+    # Requeue interval for successful reconciles (seconds)
+    requeueInterval: 300
+    # Requeue interval for failed reconciles (seconds)
+    requeueIntervalOnError: 60
+
+    # Rate limiter configuration
+    rateLimiter:
+      # Base delay for rate limiter (milliseconds)
+      baseDelay: 5
+      # Maximum delay for rate limiter (seconds)
+      maxDelay: 300
+      # Failure threshold before backing off
+      failureThreshold: 5
+      # Bucket size for token bucket rate limiter
+      bucketSize: 100
+      # Fill rate for token bucket (tokens per second)
+      fillRate: 10
+
+    # Cache configuration
+    cache:
+      # Cache sync timeout (seconds)
+      syncTimeout: 120
+      # Resync period for cached objects (seconds)
+      resyncPeriod: 600
+      # Enable cache metrics
+      metricsEnabled: true
+
+    # Batch processing configuration
+    batch:
+      # Enable batch processing
+      enabled: false
+      # Batch size for processing multiple resources
+      size: 10
+      # Batch timeout (milliseconds)
+      timeout: 1000
+      # Maximum wait time before processing batch (milliseconds)
+      maxWait: 5000
+
+  # Resource optimization settings
+  resources:
+    # CPU optimization
+    cpu:
+      # Enable CPU profiling
+      profilingEnabled: false
+      # CPU request multiplier based on load
+      requestMultiplier: 1.0
+      # CPU limit multiplier based on load
+      limitMultiplier: 1.5
+
+    # Memory optimization
+    memory:
+      # Enable memory profiling
+      profilingEnabled: false
+      # Memory request multiplier based on load
+      requestMultiplier: 1.0
+      # Memory limit multiplier based on load
+      limitMultiplier: 2.0
+      # Enable Go garbage collection tuning
+      gcTuning:
+        enabled: false
+        # Target GC percentage
+        gogc: 100
+        # Memory limit as percentage of container limit
+        memlimit: 90
+
+  # Monitoring and alerting
+  monitoring:
+    # Enable performance metrics
+    metricsEnabled: true
+    # Metrics collection interval (seconds)
+    metricsInterval: 30
+    # Enable custom performance metrics
+    customMetrics:
+      enabled: true
+      # Export interval for custom metrics (seconds)
+      exportInterval: 15
+
+    # Alerting thresholds
+    alerts:
+      # CPU usage alert threshold (percentage)
+      cpuThreshold: 85
+      # Memory usage alert threshold (percentage)
+      memoryThreshold: 90
+      # Error rate alert threshold (errors per minute)
+      errorRateThreshold: 5
+      # Queue depth alert threshold
+      queueDepthThreshold: 20
+      # API response time alert threshold (milliseconds)
+      responseTimeThreshold: 2000
+
 # Multi-tenancy configuration
 multitenancy:
   # Enable multi-tenancy features

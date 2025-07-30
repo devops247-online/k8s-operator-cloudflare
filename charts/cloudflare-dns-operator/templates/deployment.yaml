@@ -83,6 +83,76 @@ spec:
             - name: ENABLE_PPROF
               value: "true"
             {{- end }}
+            {{- if .Values.performance }}
+            {{- if .Values.performance.controller }}
+            - name: MAX_CONCURRENT_RECONCILES
+              value: {{ .Values.performance.controller.maxConcurrentReconciles | quote }}
+            - name: RECONCILE_TIMEOUT
+              value: {{ printf "%ds" (int .Values.performance.controller.reconcileTimeout) | quote }}
+            - name: REQUEUE_INTERVAL
+              value: {{ printf "%ds" (int .Values.performance.controller.requeueInterval) | quote }}
+            - name: REQUEUE_INTERVAL_ON_ERROR
+              value: {{ printf "%ds" (int .Values.performance.controller.requeueIntervalOnError) | quote }}
+            {{- if .Values.performance.controller.rateLimiter }}
+            - name: RATE_LIMITER_BASE_DELAY
+              value: {{ printf "%dms" (int .Values.performance.controller.rateLimiter.baseDelay) | quote }}
+            - name: RATE_LIMITER_MAX_DELAY
+              value: {{ printf "%ds" (int .Values.performance.controller.rateLimiter.maxDelay) | quote }}
+            - name: RATE_LIMITER_FAILURE_THRESHOLD
+              value: {{ .Values.performance.controller.rateLimiter.failureThreshold | quote }}
+            - name: RATE_LIMITER_BUCKET_SIZE
+              value: {{ .Values.performance.controller.rateLimiter.bucketSize | quote }}
+            - name: RATE_LIMITER_FILL_RATE
+              value: {{ .Values.performance.controller.rateLimiter.fillRate | quote }}
+            {{- end }}
+            {{- if .Values.performance.controller.cache }}
+            - name: CACHE_SYNC_TIMEOUT
+              value: {{ printf "%ds" (int .Values.performance.controller.cache.syncTimeout) | quote }}
+            - name: CACHE_RESYNC_PERIOD
+              value: {{ printf "%ds" (int .Values.performance.controller.cache.resyncPeriod) | quote }}
+            - name: CACHE_METRICS_ENABLED
+              value: {{ .Values.performance.controller.cache.metricsEnabled | quote }}
+            {{- end }}
+            {{- if .Values.performance.controller.batch.enabled }}
+            - name: BATCH_PROCESSING_ENABLED
+              value: "true"
+            - name: BATCH_SIZE
+              value: {{ .Values.performance.controller.batch.size | quote }}
+            - name: BATCH_TIMEOUT
+              value: {{ printf "%dms" (int .Values.performance.controller.batch.timeout) | quote }}
+            - name: BATCH_MAX_WAIT
+              value: {{ printf "%dms" (int .Values.performance.controller.batch.maxWait) | quote }}
+            {{- end }}
+            {{- end }}
+            {{- if .Values.performance.resources }}
+            {{- if .Values.performance.resources.cpu.profilingEnabled }}
+            - name: CPU_PROFILING_ENABLED
+              value: "true"
+            {{- end }}
+            {{- if .Values.performance.resources.memory.profilingEnabled }}
+            - name: MEMORY_PROFILING_ENABLED
+              value: "true"
+            {{- end }}
+            {{- if .Values.performance.resources.memory.gcTuning.enabled }}
+            - name: GOGC
+              value: {{ .Values.performance.resources.memory.gcTuning.gogc | quote }}
+            - name: GOMEMLIMIT
+              value: {{ printf "%.0f%%" .Values.performance.resources.memory.gcTuning.memlimit | quote }}
+            {{- end }}
+            {{- end }}
+            {{- if .Values.performance.monitoring.metricsEnabled }}
+            - name: PERFORMANCE_METRICS_ENABLED
+              value: "true"
+            - name: METRICS_INTERVAL
+              value: {{ printf "%ds" (int .Values.performance.monitoring.metricsInterval) | quote }}
+            {{- if .Values.performance.monitoring.customMetrics.enabled }}
+            - name: CUSTOM_METRICS_ENABLED
+              value: "true"
+            - name: CUSTOM_METRICS_EXPORT_INTERVAL
+              value: {{ printf "%ds" (int .Values.performance.monitoring.customMetrics.exportInterval) | quote }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
             {{- if .Values.multitenancy.enabled }}
             - name: MULTITENANCY_ENABLED
               value: "true"
@@ -125,7 +195,16 @@ spec:
           {{- end }}
           {{- end }}
           resources:
+            {{- if and .Values.performance .Values.performance.resources }}
+            limits:
+              cpu: {{ printf "%.0fm" (mul (float64 (regexFind "[0-9]+" .Values.resources.requests.cpu)) .Values.performance.resources.cpu.limitMultiplier) }}
+              memory: {{ printf "%.0fMi" (mul (float64 (regexFind "[0-9]+" .Values.resources.requests.memory)) .Values.performance.resources.memory.limitMultiplier) }}
+            requests:
+              cpu: {{ printf "%.0fm" (mul (float64 (regexFind "[0-9]+" .Values.resources.requests.cpu)) .Values.performance.resources.cpu.requestMultiplier) }}
+              memory: {{ printf "%.0fMi" (mul (float64 (regexFind "[0-9]+" .Values.resources.requests.memory)) .Values.performance.resources.memory.requestMultiplier) }}
+            {{- else }}
             {{- toYaml .Values.resources | nindent 12 }}
+            {{- end }}
           volumeMounts:
             - mountPath: /tmp
               name: temp

@@ -1,0 +1,111 @@
+{{- if .Values.horizontalPodAutoscaler.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "cloudflare-dns-operator.fullname" . }}
+  labels:
+    {{- include "cloudflare-dns-operator.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "cloudflare-dns-operator.fullname" . }}
+  minReplicas: {{ .Values.horizontalPodAutoscaler.minReplicas }}
+  maxReplicas: {{ .Values.horizontalPodAutoscaler.maxReplicas }}
+  metrics:
+    {{- if .Values.horizontalPodAutoscaler.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.horizontalPodAutoscaler.targetCPUUtilizationPercentage }}
+    {{- end }}
+    {{- if .Values.horizontalPodAutoscaler.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.horizontalPodAutoscaler.targetMemoryUtilizationPercentage }}
+    {{- end }}
+    {{- if .Values.horizontalPodAutoscaler.customMetrics.enabled }}
+    {{- if .Values.horizontalPodAutoscaler.customMetrics.metrics.queueDepth.enabled }}
+    - type: Pods
+      pods:
+        metric:
+          name: cloudflare_operator_queue_depth
+          selector:
+            matchLabels:
+              {{- include "cloudflare-dns-operator.selectorLabels" . | nindent 14 }}
+        target:
+          type: AverageValue
+          averageValue: {{ .Values.horizontalPodAutoscaler.customMetrics.metrics.queueDepth.targetValue | quote }}
+    {{- end }}
+    {{- if .Values.horizontalPodAutoscaler.customMetrics.metrics.reconcileRate.enabled }}
+    - type: Pods
+      pods:
+        metric:
+          name: cloudflare_operator_reconcile_rate
+          selector:
+            matchLabels:
+              {{- include "cloudflare-dns-operator.selectorLabels" . | nindent 14 }}
+        target:
+          type: AverageValue
+          averageValue: {{ .Values.horizontalPodAutoscaler.customMetrics.metrics.reconcileRate.targetValue | quote }}
+    {{- end }}
+    {{- if .Values.horizontalPodAutoscaler.customMetrics.metrics.errorRate.enabled }}
+    - type: Pods
+      pods:
+        metric:
+          name: cloudflare_operator_error_rate
+          selector:
+            matchLabels:
+              {{- include "cloudflare-dns-operator.selectorLabels" . | nindent 14 }}
+        target:
+          type: AverageValue
+          averageValue: {{ .Values.horizontalPodAutoscaler.customMetrics.metrics.errorRate.targetValue | quote }}
+    {{- end }}
+    {{- if .Values.horizontalPodAutoscaler.customMetrics.metrics.apiResponseTime.enabled }}
+    - type: Pods
+      pods:
+        metric:
+          name: cloudflare_operator_api_response_time_ms
+          selector:
+            matchLabels:
+              {{- include "cloudflare-dns-operator.selectorLabels" . | nindent 14 }}
+        target:
+          type: AverageValue
+          averageValue: {{ .Values.horizontalPodAutoscaler.customMetrics.metrics.apiResponseTime.targetValue | quote }}
+    {{- end }}
+    {{- end }}
+  {{- if semverCompare ">=1.23-0" .Capabilities.KubeVersion.GitVersion }}
+  behavior:
+    {{- if .Values.horizontalPodAutoscaler.behavior.scaleUp }}
+    scaleUp:
+      {{- if .Values.horizontalPodAutoscaler.behavior.scaleUp.stabilizationWindowSeconds }}
+      stabilizationWindowSeconds: {{ .Values.horizontalPodAutoscaler.behavior.scaleUp.stabilizationWindowSeconds }}
+      {{- end }}
+      {{- if .Values.horizontalPodAutoscaler.behavior.scaleUp.selectPolicy }}
+      selectPolicy: {{ .Values.horizontalPodAutoscaler.behavior.scaleUp.selectPolicy }}
+      {{- end }}
+      {{- if .Values.horizontalPodAutoscaler.behavior.scaleUp.policies }}
+      policies:
+        {{- toYaml .Values.horizontalPodAutoscaler.behavior.scaleUp.policies | nindent 8 }}
+      {{- end }}
+    {{- end }}
+    {{- if .Values.horizontalPodAutoscaler.behavior.scaleDown }}
+    scaleDown:
+      {{- if .Values.horizontalPodAutoscaler.behavior.scaleDown.stabilizationWindowSeconds }}
+      stabilizationWindowSeconds: {{ .Values.horizontalPodAutoscaler.behavior.scaleDown.stabilizationWindowSeconds }}
+      {{- end }}
+      {{- if .Values.horizontalPodAutoscaler.behavior.scaleDown.selectPolicy }}
+      selectPolicy: {{ .Values.horizontalPodAutoscaler.behavior.scaleDown.selectPolicy }}
+      {{- end }}
+      {{- if .Values.horizontalPodAutoscaler.behavior.scaleDown.policies }}
+      policies:
+        {{- toYaml .Values.horizontalPodAutoscaler.behavior.scaleDown.policies | nindent 8 }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+{{- end }}
