@@ -87,10 +87,7 @@ var _ = Describe("CloudflareRecord Controller", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		controllerReconciler = &CloudflareRecordReconciler{
-			Client: k8sClient,
-			Scheme: k8sClient.Scheme(),
-		}
+		controllerReconciler = NewCloudflareRecordReconciler(k8sClient, k8sClient.Scheme())
 	})
 
 	Context("When reconciling a CloudflareRecord resource", func() {
@@ -779,10 +776,7 @@ var _ = Describe("CloudflareRecord Controller", func() {
 				Client:   testFakeClient,
 				failGets: true,
 			}
-			errorController := &CloudflareRecordReconciler{
-				Client: errorClient,
-				Scheme: testFakeScheme,
-			}
+			errorController := NewCloudflareRecordReconciler(errorClient, testFakeScheme)
 
 			result, err := errorController.Reconcile(ctx, reconcile.Request{
 				NamespacedName: types.NamespacedName{
@@ -793,7 +787,7 @@ var _ = Describe("CloudflareRecord Controller", func() {
 
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("simulated get error"))
-			Expect(result).To(Equal(ctrl.Result{}))
+			Expect(result.RequeueAfter).To(Equal(time.Minute))
 		})
 
 		It("should handle finalizer Update errors properly", func() {
@@ -824,10 +818,7 @@ var _ = Describe("CloudflareRecord Controller", func() {
 				Client:      fakeClientWithRecord,
 				failUpdates: true,
 			}
-			errorController := &CloudflareRecordReconciler{
-				Client: errorClient,
-				Scheme: testFakeScheme,
-			}
+			errorController := NewCloudflareRecordReconciler(errorClient, testFakeScheme)
 
 			result, err := errorController.Reconcile(ctx, reconcile.Request{
 				NamespacedName: types.NamespacedName{
@@ -838,7 +829,7 @@ var _ = Describe("CloudflareRecord Controller", func() {
 
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("simulated update error"))
-			Expect(result).To(Equal(ctrl.Result{}))
+			Expect(result.RequeueAfter).To(Equal(time.Minute))
 		})
 
 		It("should handle status update errors properly", func() {
@@ -870,10 +861,7 @@ var _ = Describe("CloudflareRecord Controller", func() {
 				Client:            fakeClientWithRecord,
 				failStatusUpdates: true,
 			}
-			errorController := &CloudflareRecordReconciler{
-				Client: errorClient,
-				Scheme: testFakeScheme,
-			}
+			errorController := NewCloudflareRecordReconciler(errorClient, testFakeScheme)
 
 			result, err := errorController.Reconcile(ctx, reconcile.Request{
 				NamespacedName: types.NamespacedName{
@@ -917,10 +905,7 @@ var _ = Describe("CloudflareRecord Controller", func() {
 				Client:      fakeClientWithRecord,
 				failUpdates: true,
 			}
-			errorController := &CloudflareRecordReconciler{
-				Client: errorClient,
-				Scheme: testFakeScheme,
-			}
+			errorController := NewCloudflareRecordReconciler(errorClient, testFakeScheme)
 
 			result, err := errorController.Reconcile(ctx, reconcile.Request{
 				NamespacedName: types.NamespacedName{
@@ -931,7 +916,7 @@ var _ = Describe("CloudflareRecord Controller", func() {
 
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("simulated update error"))
-			Expect(result).To(Equal(ctrl.Result{}))
+			Expect(result.RequeueAfter).To(Equal(time.Minute))
 		})
 	})
 })

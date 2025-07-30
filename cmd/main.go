@@ -233,10 +233,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := (&controller.CloudflareRecordReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	// Create controller with performance configuration
+	cloudflareReconciler := controller.NewCloudflareRecordReconciler(mgr.GetClient(), mgr.GetScheme())
+	if err := cloudflareReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CloudflareRecord")
 		os.Exit(1)
 	}
