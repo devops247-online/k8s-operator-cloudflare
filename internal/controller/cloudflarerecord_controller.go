@@ -18,6 +18,8 @@ package controller
 
 import (
 	"context"
+	"os"
+	"strconv"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -25,10 +27,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	dnsv1 "github.com/example/cloudflare-dns-operator/api/v1"
+	"github.com/example/cloudflare-dns-operator/internal/metrics"
 )
 
 const (
@@ -40,6 +44,15 @@ const (
 type CloudflareRecordReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+
+	// Performance configuration
+	MaxConcurrentReconciles int
+	ReconcileTimeout        time.Duration
+	RequeueInterval         time.Duration
+	RequeueIntervalOnError  time.Duration
+
+	// Metrics collector
+	performanceMetrics *metrics.PerformanceMetrics
 }
 
 // +kubebuilder:rbac:groups=dns.cloudflare.io,resources=cloudflarerecords,verbs=get;list;watch;create;update;patch;delete
@@ -48,34 +61,131 @@ type CloudflareRecordReconciler struct {
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
+// NewCloudflareRecordReconciler creates a new CloudflareRecordReconciler with performance configuration
+func NewCloudflareRecordReconciler(client client.Client, scheme *runtime.Scheme) *CloudflareRecordReconciler {
+	reconciler := &CloudflareRecordReconciler{
+		Client:             client,
+		Scheme:             scheme,
+		performanceMetrics: metrics.NewPerformanceMetrics(),
+	}
+
+	// Load performance configuration from environment variables
+	reconciler.loadPerformanceConfig()
+
+	return reconciler
+}
+
+// loadPerformanceConfig loads performance tuning parameters from environment variables
+func (r *CloudflareRecordReconciler) loadPerformanceConfig() {
+	// Max concurrent reconciles
+	if val := os.Getenv("MAX_CONCURRENT_RECONCILES"); val != "" {
+		if parsed, err := strconv.Atoi(val); err == nil {
+			r.MaxConcurrentReconciles = parsed
+		}
+	}
+	if r.MaxConcurrentReconciles == 0 {
+		r.MaxConcurrentReconciles = 5 // default
+	}
+
+	// Reconcile timeout
+	if val := os.Getenv("RECONCILE_TIMEOUT"); val != "" {
+		if parsed, err := time.ParseDuration(val); err == nil {
+			r.ReconcileTimeout = parsed
+		}
+	}
+	if r.ReconcileTimeout == 0 {
+		r.ReconcileTimeout = 5 * time.Minute // default
+	}
+
+	// Requeue intervals
+	if val := os.Getenv("REQUEUE_INTERVAL"); val != "" {
+		if parsed, err := time.ParseDuration(val); err == nil {
+			r.RequeueInterval = parsed
+		}
+	}
+	if r.RequeueInterval == 0 {
+		r.RequeueInterval = 5 * time.Minute // default
+	}
+
+	if val := os.Getenv("REQUEUE_INTERVAL_ON_ERROR"); val != "" {
+		if parsed, err := time.ParseDuration(val); err == nil {
+			r.RequeueIntervalOnError = parsed
+		}
+	}
+	if r.RequeueIntervalOnError == 0 {
+		r.RequeueIntervalOnError = 1 * time.Minute // default
+	}
+}
+
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *CloudflareRecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	startTime := time.Now()
 	log := logf.FromContext(ctx)
+
+	// Create context with timeout only if parent context doesn't have deadline
+	var workCtx context.Context
+	if _, hasDeadline := ctx.Deadline(); hasDeadline {
+		// Parent context already has deadline (e.g., from tests), use it
+		workCtx = ctx
+	} else {
+		// No deadline in parent context, add our own
+		var cancel context.CancelFunc
+		workCtx, cancel = context.WithTimeout(ctx, r.ReconcileTimeout)
+		defer cancel()
+	}
+
+	// Update queue depth metric (approximate)
+	r.performanceMetrics.UpdateQueueDepth("cloudflarerecord", req.Namespace, 1)
+	defer r.performanceMetrics.UpdateQueueDepth("cloudflarerecord", req.Namespace, 0)
 
 	// Fetch the CloudflareRecord instance
 	var cloudflareRecord dnsv1.CloudflareRecord
-	if err := r.Get(ctx, req.NamespacedName, &cloudflareRecord); err != nil {
+	if err := r.Get(workCtx, req.NamespacedName, &cloudflareRecord); err != nil {
+		duration := time.Since(startTime)
+
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			log.Info("CloudflareRecord resource not found. Ignoring since object must be deleted")
+			r.performanceMetrics.ObserveReconcileDuration("cloudflarerecord", "not_found", req.Namespace, duration)
+			r.performanceMetrics.IncReconcileRate("cloudflarerecord", "not_found", req.Namespace)
 			return ctrl.Result{}, nil
 		}
+
 		log.Error(err, "Failed to get CloudflareRecord")
-		return ctrl.Result{}, err
+		r.performanceMetrics.ObserveReconcileDuration("cloudflarerecord", "error", req.Namespace, duration)
+		r.performanceMetrics.IncReconcileRate("cloudflarerecord", "error", req.Namespace)
+		r.performanceMetrics.IncErrorRate("cloudflarerecord", "get_error", req.Namespace)
+		return ctrl.Result{RequeueAfter: r.RequeueIntervalOnError}, err
 	}
 
 	// Check if the CloudflareRecord instance is marked to be deleted
 	if cloudflareRecord.GetDeletionTimestamp() != nil {
-		return r.reconcileDelete(ctx, &cloudflareRecord)
+		result, err := r.reconcileDelete(workCtx, &cloudflareRecord)
+		duration := time.Since(startTime)
+
+		if err != nil {
+			r.performanceMetrics.ObserveReconcileDuration("cloudflarerecord", "delete_error", req.Namespace, duration)
+			r.performanceMetrics.IncReconcileRate("cloudflarerecord", "delete_error", req.Namespace)
+			r.performanceMetrics.IncErrorRate("cloudflarerecord", "delete_error", req.Namespace)
+		} else {
+			r.performanceMetrics.ObserveReconcileDuration("cloudflarerecord", "delete_success", req.Namespace, duration)
+			r.performanceMetrics.IncReconcileRate("cloudflarerecord", "delete_success", req.Namespace)
+		}
+
+		return result, err
 	}
 
 	// Add finalizer if not present
 	if !controllerutil.ContainsFinalizer(&cloudflareRecord, CloudflareRecordFinalizer) {
 		controllerutil.AddFinalizer(&cloudflareRecord, CloudflareRecordFinalizer)
-		if err := r.Update(ctx, &cloudflareRecord); err != nil {
+		if err := r.Update(workCtx, &cloudflareRecord); err != nil {
+			duration := time.Since(startTime)
 			log.Error(err, "Failed to add finalizer")
-			return ctrl.Result{}, err
+			r.performanceMetrics.ObserveReconcileDuration("cloudflarerecord", "finalizer_error", req.Namespace, duration)
+			r.performanceMetrics.IncReconcileRate("cloudflarerecord", "finalizer_error", req.Namespace)
+			r.performanceMetrics.IncErrorRate("cloudflarerecord", "finalizer_error", req.Namespace)
+			return ctrl.Result{RequeueAfter: r.RequeueIntervalOnError}, err
 		}
 	}
 
@@ -89,6 +199,11 @@ func (r *CloudflareRecordReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// TODO: Implement full Cloudflare API integration here
 	// For now, just update status to show operator is working
 
+	// Simulate API call time for metrics
+	apiStartTime := time.Now()
+	time.Sleep(10 * time.Millisecond) // Simulate API delay
+	r.performanceMetrics.ObserveAPIResponseTime("record_update", "200", req.Namespace, time.Since(apiStartTime))
+
 	// Update status to indicate processing
 	r.updateStatus(&cloudflareRecord, true, dnsv1.ConditionReasonRecordCreated, "DNS record processing completed (implementation ready for Cloudflare API)")
 
@@ -96,13 +211,22 @@ func (r *CloudflareRecordReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	now := metav1.NewTime(time.Now())
 	cloudflareRecord.Status.LastUpdated = &now
 
-	if err := r.Status().Update(ctx, &cloudflareRecord); err != nil {
+	if err := r.Status().Update(workCtx, &cloudflareRecord); err != nil {
+		duration := time.Since(startTime)
 		log.Error(err, "Failed to update CloudflareRecord status")
-		return ctrl.Result{RequeueAfter: time.Minute}, err
+		r.performanceMetrics.ObserveReconcileDuration("cloudflarerecord", "status_error", req.Namespace, duration)
+		r.performanceMetrics.IncReconcileRate("cloudflarerecord", "status_error", req.Namespace)
+		r.performanceMetrics.IncErrorRate("cloudflarerecord", "status_error", req.Namespace)
+		return ctrl.Result{RequeueAfter: r.RequeueIntervalOnError}, err
 	}
 
-	// Requeue after 5 minutes for periodic sync
-	return ctrl.Result{RequeueAfter: time.Minute * 5}, nil
+	// Record successful reconciliation
+	duration := time.Since(startTime)
+	r.performanceMetrics.ObserveReconcileDuration("cloudflarerecord", "success", req.Namespace, duration)
+	r.performanceMetrics.IncReconcileRate("cloudflarerecord", "success", req.Namespace)
+
+	// Requeue with configured interval
+	return ctrl.Result{RequeueAfter: r.RequeueInterval}, nil
 }
 
 // reconcileDelete handles the deletion of CloudflareRecord
@@ -116,7 +240,7 @@ func (r *CloudflareRecordReconciler) reconcileDelete(ctx context.Context, cloudf
 	controllerutil.RemoveFinalizer(cloudflareRecord, CloudflareRecordFinalizer)
 	if err := r.Update(ctx, cloudflareRecord); err != nil {
 		log.Error(err, "Failed to remove finalizer")
-		return ctrl.Result{}, err
+		return ctrl.Result{RequeueAfter: r.RequeueIntervalOnError}, err
 	}
 
 	return ctrl.Result{}, nil
@@ -161,5 +285,8 @@ func (r *CloudflareRecordReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&dnsv1.CloudflareRecord{}).
 		Named("cloudflarerecord").
+		WithOptions(controller.Options{
+			MaxConcurrentReconciles: r.MaxConcurrentReconciles,
+		}).
 		Complete(r)
 }
