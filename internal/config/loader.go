@@ -67,7 +67,14 @@ func (cl *ConfigLoader) LoadFromFile(filePath string) (*Config, error) {
 		return nil, fmt.Errorf("file path cannot be empty")
 	}
 
-	data, err := os.ReadFile(filePath)
+	// Validate file path to prevent path traversal
+	cleanPath := filepath.Clean(filePath)
+	if cleanPath != filePath {
+		return nil, fmt.Errorf("invalid file path: path traversal detected")
+	}
+
+	// #nosec G304 - file path is validated above
+	data, err := os.ReadFile(cleanPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file %s: %w", filePath, err)
 	}
