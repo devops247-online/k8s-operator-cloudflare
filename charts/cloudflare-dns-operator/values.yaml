@@ -610,7 +610,7 @@ config:
   # Configuration format: json, yaml, or individual (separate keys)
   format: yaml
 
-  # Use structured configuration file (config.json/config.yaml) or individual keys
+  # Use structured config file (config.json/config.yaml) or individual keys
   file: true
 
   # Annotations to add to the ConfigMap
