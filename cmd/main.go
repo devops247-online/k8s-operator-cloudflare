@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"net/http"
@@ -38,9 +39,10 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	dnsv1 "github.com/example/cloudflare-dns-operator/api/v1"
-	"github.com/example/cloudflare-dns-operator/internal/controller"
-	"github.com/example/cloudflare-dns-operator/internal/health"
+	dnsv1 "github.com/devops247-online/k8s-operator-cloudflare/api/v1"
+	"github.com/devops247-online/k8s-operator-cloudflare/internal/config"
+	"github.com/devops247-online/k8s-operator-cloudflare/internal/controller"
+	"github.com/devops247-online/k8s-operator-cloudflare/internal/health"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -233,11 +235,98 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Initialize configuration manager
+	namespace := os.Getenv("POD_NAMESPACE")
+	if namespace == "" {
+		namespace = DefaultNamespace
+	}
+	configManager := config.NewConfigManager(mgr.GetClient(), namespace)
+
+	// Load configuration with comprehensive options
+	ctx := context.Background()
+	configMapName := os.Getenv("CONFIG_CONFIGMAP_NAME")
+	if configMapName == "" {
+		configMapName = DefaultConfigMapName
+	}
+
+	environment := os.Getenv("OPERATOR_ENVIRONMENT")
+	if environment == "" {
+		environment = ProductionEnvironment
+	}
+
+	loadOptions := config.LoadOptions{
+		LoadFromEnv:    true,
+		ValidateConfig: true,
+		ConfigMapName:  configMapName,
+		SecretName:     os.Getenv("CONFIG_SECRET_NAME"),
+	}
+
+	operatorConfig, err := configManager.LoadConfig(ctx, loadOptions)
+	if err != nil {
+		setupLog.Error(err, "failed to load operator configuration")
+		// Fall back to default configuration
+		setupLog.Info("Using default configuration", "environment", environment)
+		operatorConfig = config.GetEnvironmentDefaults(environment) // nolint:staticcheck // False positive SA4006
+	} else {
+		setupLog.Info("Configuration loaded successfully",
+			"environment", operatorConfig.Environment,
+			"logLevel", operatorConfig.Operator.LogLevel,
+			"reconcileInterval", operatorConfig.Operator.ReconcileInterval,
+			"source", "configmap/env")
+	}
+
 	// Create controller with performance configuration
-	cloudflareReconciler := controller.NewCloudflareRecordReconciler(mgr.GetClient(), mgr.GetScheme())
+	cloudflareReconciler := controller.NewCloudflareRecordReconciler(mgr.GetClient(), mgr.GetScheme(), configManager)
 	if err := cloudflareReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CloudflareRecord")
 		os.Exit(1)
+	}
+
+	// Start hot-reload configuration watcher if ConfigMap is specified
+	if configMapName != "" {
+		go func() {
+			setupLog.Info("Starting configuration hot-reload watcher", "configMapName", configMapName)
+			watchCtx, watchCancel := context.WithCancel(ctx)
+			defer watchCancel()
+
+			// Create a config loader for watching
+			configLoader := config.NewConfigLoader(mgr.GetClient(), namespace)
+
+			watchOptions := config.WatchOptions{
+				ConfigMapName: configMapName,
+				SecretName:    loadOptions.SecretName,
+				Interval:      30 * time.Second, // Check every 30 seconds
+			}
+
+			configCh, errCh := configLoader.WatchConfig(watchCtx, watchOptions)
+
+			for {
+				select {
+				case newConfig := <-configCh:
+					if newConfig != nil {
+						setupLog.Info("Configuration reloaded",
+							"environment", newConfig.Environment,
+							"logLevel", newConfig.Operator.LogLevel,
+							"reconcileInterval", newConfig.Operator.ReconcileInterval)
+
+						// Trigger reload of config manager to update internal state
+						_, err := configManager.ReloadConfig(watchCtx)
+						if err != nil {
+							setupLog.Error(err, "Failed to reload config manager")
+						} else {
+							setupLog.Info("Controller performance configuration updated")
+						}
+					}
+				case err := <-errCh:
+					if err != nil {
+						setupLog.Error(err, "Configuration hot-reload error")
+					}
+				case <-watchCtx.Done():
+					setupLog.Info("Configuration hot-reload watcher stopped")
+					return
+				}
+			}
+		}()
 	}
 	// +kubebuilder:scaffold:builder
 

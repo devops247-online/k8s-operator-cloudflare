@@ -31,8 +31,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	dnsv1 "github.com/example/cloudflare-dns-operator/api/v1"
-	"github.com/example/cloudflare-dns-operator/internal/metrics"
+	dnsv1 "github.com/devops247-online/k8s-operator-cloudflare/api/v1"
+	"github.com/devops247-online/k8s-operator-cloudflare/internal/config"
+	"github.com/devops247-online/k8s-operator-cloudflare/internal/metrics"
 )
 
 const (
@@ -44,6 +45,9 @@ const (
 type CloudflareRecordReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+
+	// Configuration manager for advanced configuration support
+	configManager *config.ConfigManager
 
 	// Performance configuration
 	MaxConcurrentReconciles int
@@ -62,58 +66,72 @@ type CloudflareRecordReconciler struct {
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // NewCloudflareRecordReconciler creates a new CloudflareRecordReconciler with performance configuration
-func NewCloudflareRecordReconciler(client client.Client, scheme *runtime.Scheme) *CloudflareRecordReconciler {
+func NewCloudflareRecordReconciler(kubeClient client.Client, scheme *runtime.Scheme, configManager *config.ConfigManager) *CloudflareRecordReconciler {
 	reconciler := &CloudflareRecordReconciler{
-		Client:             client,
+		Client:             kubeClient,
 		Scheme:             scheme,
+		configManager:      configManager,
 		performanceMetrics: metrics.NewPerformanceMetrics(),
 	}
 
-	// Load performance configuration from environment variables
+	// Load performance configuration from config manager or environment variables
 	reconciler.loadPerformanceConfig()
 
 	return reconciler
 }
 
-// loadPerformanceConfig loads performance tuning parameters from environment variables
+// loadPerformanceConfig loads performance tuning parameters from config manager or environment variables
 func (r *CloudflareRecordReconciler) loadPerformanceConfig() {
-	// Max concurrent reconciles
+	// Set defaults first
+	r.MaxConcurrentReconciles = 5
+	r.ReconcileTimeout = 5 * time.Minute
+	r.RequeueInterval = 5 * time.Minute
+	r.RequeueIntervalOnError = 1 * time.Minute
+
+	// Try to get configuration from config manager first
+	if r.configManager != nil && r.configManager.IsConfigured() {
+		cfg := r.configManager.GetConfig()
+		if cfg != nil {
+			// Load from config manager - override defaults with non-zero values
+			if cfg.Performance.MaxConcurrentReconciles > 0 {
+				r.MaxConcurrentReconciles = cfg.Performance.MaxConcurrentReconciles
+			}
+			if cfg.Performance.ReconcileTimeout > 0 {
+				r.ReconcileTimeout = cfg.Performance.ReconcileTimeout
+			}
+			if cfg.Performance.RequeueInterval > 0 {
+				r.RequeueInterval = cfg.Performance.RequeueInterval
+			}
+			if cfg.Performance.RequeueIntervalOnError > 0 {
+				r.RequeueIntervalOnError = cfg.Performance.RequeueIntervalOnError
+			}
+			return
+		}
+	}
+
+	// Fallback to environment variables - override defaults
 	if val := os.Getenv("MAX_CONCURRENT_RECONCILES"); val != "" {
-		if parsed, err := strconv.Atoi(val); err == nil {
+		if parsed, err := strconv.Atoi(val); err == nil && parsed > 0 {
 			r.MaxConcurrentReconciles = parsed
 		}
 	}
-	if r.MaxConcurrentReconciles == 0 {
-		r.MaxConcurrentReconciles = 5 // default
-	}
 
-	// Reconcile timeout
 	if val := os.Getenv("RECONCILE_TIMEOUT"); val != "" {
-		if parsed, err := time.ParseDuration(val); err == nil {
+		if parsed, err := time.ParseDuration(val); err == nil && parsed > 0 {
 			r.ReconcileTimeout = parsed
 		}
 	}
-	if r.ReconcileTimeout == 0 {
-		r.ReconcileTimeout = 5 * time.Minute // default
-	}
 
-	// Requeue intervals
 	if val := os.Getenv("REQUEUE_INTERVAL"); val != "" {
-		if parsed, err := time.ParseDuration(val); err == nil {
+		if parsed, err := time.ParseDuration(val); err == nil && parsed > 0 {
 			r.RequeueInterval = parsed
 		}
 	}
-	if r.RequeueInterval == 0 {
-		r.RequeueInterval = 5 * time.Minute // default
-	}
 
 	if val := os.Getenv("REQUEUE_INTERVAL_ON_ERROR"); val != "" {
-		if parsed, err := time.ParseDuration(val); err == nil {
+		if parsed, err := time.ParseDuration(val); err == nil && parsed > 0 {
 			r.RequeueIntervalOnError = parsed
 		}
-	}
-	if r.RequeueIntervalOnError == 0 {
-		r.RequeueIntervalOnError = 1 * time.Minute // default
 	}
 }
 
@@ -157,6 +175,15 @@ func (r *CloudflareRecordReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		r.performanceMetrics.IncReconcileRate("cloudflarerecord", "error", req.Namespace)
 		r.performanceMetrics.IncErrorRate("cloudflarerecord", "get_error", req.Namespace)
 		return ctrl.Result{RequeueAfter: r.RequeueIntervalOnError}, err
+	}
+
+	// Check feature flags if config manager is available
+	if r.configManager != nil && r.configManager.IsConfigured() {
+		ffm := r.configManager.GetFeatureFlagManager()
+		if ffm != nil && !ffm.IsEnabled("EnableReconciliation") {
+			log.Info("Reconciliation disabled by feature flag")
+			return ctrl.Result{RequeueAfter: r.RequeueInterval}, nil
+		}
 	}
 
 	// Check if the CloudflareRecord instance is marked to be deleted
@@ -264,18 +291,18 @@ func (r *CloudflareRecordReconciler) updateStatus(cloudflareRecord *dnsv1.Cloudf
 	}
 
 	// Find existing condition or add new one
-	updated := false
+	found := false
 	for i, existingCondition := range cloudflareRecord.Status.Conditions {
 		if existingCondition.Type == dnsv1.ConditionTypeReady {
+			found = true
 			if existingCondition.Status != condition.Status || existingCondition.Reason != condition.Reason {
 				cloudflareRecord.Status.Conditions[i] = condition
-				updated = true
 			}
 			break
 		}
 	}
 
-	if !updated {
+	if !found {
 		cloudflareRecord.Status.Conditions = append(cloudflareRecord.Status.Conditions, condition)
 	}
 }

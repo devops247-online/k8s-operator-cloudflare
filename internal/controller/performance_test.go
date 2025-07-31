@@ -14,7 +14,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	dnsv1 "github.com/example/cloudflare-dns-operator/api/v1"
+	dnsv1 "github.com/devops247-online/k8s-operator-cloudflare/api/v1"
 )
 
 func TestNewCloudflareRecordReconciler(t *testing.T) {
@@ -24,7 +24,7 @@ func TestNewCloudflareRecordReconciler(t *testing.T) {
 
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 
-	reconciler := NewCloudflareRecordReconciler(fakeClient, scheme)
+	reconciler := NewCloudflareRecordReconciler(fakeClient, scheme, nil)
 
 	assert.NotNil(t, reconciler)
 	assert.NotNil(t, reconciler.Client)
@@ -58,7 +58,7 @@ func TestLoadPerformanceConfigFromEnv(t *testing.T) {
 		_ = os.Unsetenv("REQUEUE_INTERVAL_ON_ERROR")
 	}()
 
-	reconciler := NewCloudflareRecordReconciler(fakeClient, scheme)
+	reconciler := NewCloudflareRecordReconciler(fakeClient, scheme, nil)
 
 	// Check that environment variables were loaded
 	assert.Equal(t, 10, reconciler.MaxConcurrentReconciles)
@@ -87,7 +87,7 @@ func TestLoadPerformanceConfigInvalidValues(t *testing.T) {
 		_ = os.Unsetenv("REQUEUE_INTERVAL_ON_ERROR")
 	}()
 
-	reconciler := NewCloudflareRecordReconciler(fakeClient, scheme)
+	reconciler := NewCloudflareRecordReconciler(fakeClient, scheme, nil)
 
 	// Check that defaults are used when invalid values are provided
 	assert.Equal(t, 5, reconciler.MaxConcurrentReconciles)
@@ -120,7 +120,7 @@ func TestReconcileWithPerformanceMetrics(t *testing.T) {
 		WithObjects(cloudflareRecord).
 		Build()
 
-	reconciler := NewCloudflareRecordReconciler(fakeClient, scheme)
+	reconciler := NewCloudflareRecordReconciler(fakeClient, scheme, nil)
 
 	req := ctrl.Request{
 		NamespacedName: types.NamespacedName{
@@ -157,7 +157,7 @@ func TestReconcileNotFound(t *testing.T) {
 	_ = dnsv1.AddToScheme(scheme)
 
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-	reconciler := NewCloudflareRecordReconciler(fakeClient, scheme)
+	reconciler := NewCloudflareRecordReconciler(fakeClient, scheme, nil)
 
 	req := ctrl.Request{
 		NamespacedName: types.NamespacedName{
@@ -202,7 +202,7 @@ func TestReconcileDeleteLogic(t *testing.T) {
 		WithObjects(cloudflareRecord).
 		Build()
 
-	reconciler := NewCloudflareRecordReconciler(fakeClient, scheme)
+	reconciler := NewCloudflareRecordReconciler(fakeClient, scheme, nil)
 
 	ctx := context.Background()
 
@@ -224,7 +224,7 @@ func TestSetupWithManagerWithOptions(t *testing.T) {
 	_ = dnsv1.AddToScheme(scheme)
 
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-	reconciler := NewCloudflareRecordReconciler(fakeClient, scheme)
+	reconciler := NewCloudflareRecordReconciler(fakeClient, scheme, nil)
 
 	// Set custom MaxConcurrentReconciles
 	reconciler.MaxConcurrentReconciles = 10
@@ -258,7 +258,7 @@ func TestReconcileWithTimeout(t *testing.T) {
 		WithObjects(cloudflareRecord).
 		Build()
 
-	reconciler := NewCloudflareRecordReconciler(fakeClient, scheme)
+	reconciler := NewCloudflareRecordReconciler(fakeClient, scheme, nil)
 
 	// Set a very short timeout for testing
 	reconciler.ReconcileTimeout = 1 * time.Microsecond
@@ -288,7 +288,7 @@ func TestUpdateStatus(t *testing.T) {
 	_ = clientgoscheme.AddToScheme(scheme)
 	_ = dnsv1.AddToScheme(scheme)
 
-	reconciler := NewCloudflareRecordReconciler(nil, scheme)
+	reconciler := NewCloudflareRecordReconciler(nil, scheme, nil)
 
 	// Create test CloudflareRecord
 	cloudflareRecord := &dnsv1.CloudflareRecord{
@@ -335,7 +335,7 @@ func TestSetupWithManagerOptions(t *testing.T) {
 	_ = clientgoscheme.AddToScheme(scheme)
 	_ = dnsv1.AddToScheme(scheme)
 
-	reconciler := NewCloudflareRecordReconciler(nil, scheme)
+	reconciler := NewCloudflareRecordReconciler(nil, scheme, nil)
 	reconciler.MaxConcurrentReconciles = 15
 
 	// We can't easily test SetupWithManager without a real manager,
@@ -371,7 +371,7 @@ func TestReconcileWithFinalizerAlreadyPresent(t *testing.T) {
 		WithObjects(cloudflareRecord).
 		Build()
 
-	reconciler := NewCloudflareRecordReconciler(fakeClient, scheme)
+	reconciler := NewCloudflareRecordReconciler(fakeClient, scheme, nil)
 
 	req := ctrl.Request{
 		NamespacedName: types.NamespacedName{
@@ -428,7 +428,7 @@ func TestReconcileErrorHandling(t *testing.T) {
 		WithObjects(cloudflareRecord).
 		Build()
 
-	reconciler := NewCloudflareRecordReconciler(fakeClient, scheme)
+	reconciler := NewCloudflareRecordReconciler(fakeClient, scheme, nil)
 
 	req := ctrl.Request{
 		NamespacedName: types.NamespacedName{
@@ -473,7 +473,7 @@ func BenchmarkReconcile(b *testing.B) {
 		WithObjects(cloudflareRecord).
 		Build()
 
-	reconciler := NewCloudflareRecordReconciler(fakeClient, scheme)
+	reconciler := NewCloudflareRecordReconciler(fakeClient, scheme, nil)
 
 	req := ctrl.Request{
 		NamespacedName: types.NamespacedName{

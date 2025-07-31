@@ -79,44 +79,27 @@ spec:
             {{- end }}
             - name: LOG_LEVEL
               value: {{ .Values.operator.logLevel | quote }}
-            {{- if .Values.profiling.enabled }}
-            - name: ENABLE_PPROF
+            {{- if .Values.config.enabled }}
+            - name: OPERATOR_ENVIRONMENT
+              value: {{ .Values.config.environment | default .Values.environment | default "production" | quote }}
+            - name: OPERATOR_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            {{- if .Values.config.secretName }}
+            - name: CONFIG_SECRET_NAME
+              value: {{ .Values.config.secretName | quote }}
+            {{- end }}
+            # Configuration management environment variables
+            - name: CONFIG_LOAD_FROM_CONFIGMAP
               value: "true"
-            {{- end }}
-            {{- if .Values.performance }}
-            {{- if .Values.performance.controller }}
-            - name: MAX_CONCURRENT_RECONCILES
-              value: {{ .Values.performance.controller.maxConcurrentReconciles | quote }}
-            - name: RECONCILE_TIMEOUT
-              value: {{ printf "%ds" (int .Values.performance.controller.reconcileTimeout) | quote }}
-            - name: REQUEUE_INTERVAL
-              value: {{ printf "%ds" (int .Values.performance.controller.requeueInterval) | quote }}
-            - name: REQUEUE_INTERVAL_ON_ERROR
-              value: {{ printf "%ds" (int .Values.performance.controller.requeueIntervalOnError) | quote }}
-            {{- end }}
-            {{- end }}
-            {{- if .Values.multitenancy.enabled }}
-            - name: MULTITENANCY_ENABLED
+            - name: CONFIG_CONFIGMAP_NAME
+              value: {{ include "cloudflare-dns-operator.fullname" . }}-config
+            - name: CONFIG_LOAD_FROM_ENV
               value: "true"
-            - name: MULTITENANCY_SCOPE
-              value: {{ .Values.multitenancy.scope | quote }}
-            {{- if eq .Values.multitenancy.scope "multi-namespace" }}
-            - name: WATCH_NAMESPACES
-              value: {{ join "," .Values.multitenancy.watchNamespaces | quote }}
-            {{- else if eq .Values.multitenancy.scope "namespace" }}
-            - name: WATCH_NAMESPACE
-              value: {{ .Release.Namespace | quote }}
-            {{- end }}
-            - name: ENFORCE_NAMESPACE_SECRETS
-              value: >-
-                {{ .Values.multitenancy.validation.enforceNamespaceSecrets | quote }}
-            - name: VALIDATE_ZONE_OWNERSHIP
-              value: >-
-                {{ .Values.multitenancy.validation.validateZoneOwnership | quote }}
-            {{- if .Values.multitenancy.validation.allowedZones }}
-            - name: ALLOWED_ZONES_CONFIG
-              value: >-
-                {{ toJson .Values.multitenancy.validation.allowedZones | quote }}
+            {{- if .Values.config.environment }}
+            - name: CONFIG_ENVIRONMENT
+              value: {{ .Values.config.environment | quote }}
             {{- end }}
             {{- end }}
           ports:
@@ -141,6 +124,11 @@ spec:
           volumeMounts:
             - mountPath: /tmp
               name: temp
+            {{- if .Values.config.enabled }}
+            - mountPath: /etc/config
+              name: config
+              readOnly: true
+            {{- end }}
           {{- if and .Values.highAvailability.enabled .Values.highAvailability.gracefulShutdown.enabled }}
           lifecycle:
             preStop:
@@ -153,6 +141,12 @@ spec:
       volumes:
         - name: temp
           emptyDir: {}
+        {{- if .Values.config.enabled }}
+        - name: config
+          configMap:
+            name: {{ include "cloudflare-dns-operator.fullname" . }}-config
+            defaultMode: 0644
+        {{- end }}
       {{- if and .Values.highAvailability.enabled .Values.highAvailability.gracefulShutdown.enabled }}
       terminationGracePeriodSeconds: {{ .Values.highAvailability.gracefulShutdown.terminationGracePeriodSeconds }}
       {{- end }}
