@@ -601,3 +601,63 @@ multitenancy:
     # allowedZones:
     #   tenant-a: ["customer-a.com", "*.customer-a.com"]
     #   tenant-b: ["customer-b.org"]
+
+# Configuration management
+config:
+  # Enable configuration management via ConfigMap
+  enabled: true
+
+  # Configuration format: json, yaml, or individual (separate keys)
+  format: yaml
+
+  # Use structured config file (config.json/config.yaml) or individual keys
+  file: true
+
+  # Annotations to add to the ConfigMap
+  annotations: {}
+
+  # Environment-specific configuration
+  environment: production
+
+  # Operator configuration
+  operator:
+    logLevel: info
+    reconcileInterval: "5m"
+    metricsBindAddress: ":8080"
+    healthProbeBindAddress: ":8081"
+    leaderElection: true
+
+  # Cloudflare API configuration
+  cloudflare:
+    apiTimeout: "30s"
+    rateLimitRPS: 10
+    retryAttempts: 3
+    retryDelay: "1s"
+
+  # Feature flags configuration
+  features:
+    enableWebhooks: true
+    enableMetrics: true
+    enableTracing: false
+    experimentalFeatures: false
+    # Custom feature flags
+    customFlags: {}
+    # Example:
+    # customFlags:
+    #   newFeature: true
+    #   betaAPI: false
+
+  # Performance tuning configuration
+  performance:
+    maxConcurrentReconciles: 5
+    resyncPeriod: "10m"
+    leaderElectionLeaseDuration: "15s"
+    leaderElectionRenewDeadline: "10s"
+    leaderElectionRetryPeriod: "2s"
+
+  # Custom configuration keys (for individual format)
+  custom: {}
+  # Example:
+  # custom:
+  #   specialSetting: "value"
+  #   debugMode: "true"

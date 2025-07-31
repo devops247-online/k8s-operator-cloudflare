@@ -1,0 +1,2163 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>config: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+
+				<option value="file0">github.com/example/cloudflare-dns-operator/internal/config/feature_flags.go (96.6%)</option>
+
+				<option value="file1">github.com/example/cloudflare-dns-operator/internal/config/loader.go (75.7%)</option>
+
+				<option value="file2">github.com/example/cloudflare-dns-operator/internal/config/manager.go (86.8%)</option>
+
+				<option value="file3">github.com/example/cloudflare-dns-operator/internal/config/types.go (90.1%)</option>
+
+				<option value="file4">github.com/example/cloudflare-dns-operator/internal/config/validation.go (96.0%)</option>
+
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+
+			</div>
+		</div>
+		<div id="content">
+
+		<pre class="file" id="file0" style="display: none">package config
+
+import (
+        "fmt"
+        "reflect"
+        "sort"
+        "strings"
+        "sync"
+)
+
+// FeatureFlagManager provides thread-safe access to feature flags
+type FeatureFlagManager struct {
+        flags *FeatureFlags
+        mutex sync.RWMutex
+}
+
+// NewFeatureFlagManager creates a new feature flag manager
+func NewFeatureFlagManager(flags *FeatureFlags) *FeatureFlagManager <span class="cov8" title="1">{
+        return &amp;FeatureFlagManager{
+                flags: flags,
+        }
+}</span>
+
+// IsEnabled checks if a specific feature flag is enabled
+func (m *FeatureFlagManager) IsEnabled(flagName string) bool <span class="cov8" title="1">{
+        m.mutex.RLock()
+        defer m.mutex.RUnlock()
+
+        if m.flags == nil </span><span class="cov8" title="1">{
+                return false
+        }</span>
+
+        // Check standard flags first
+        <span class="cov8" title="1">switch flagName </span>{
+        case "EnableWebhooks":<span class="cov8" title="1">
+                return m.flags.EnableWebhooks</span>
+        case "EnableMetrics":<span class="cov8" title="1">
+                return m.flags.EnableMetrics</span>
+        case "EnableTracing":<span class="cov8" title="1">
+                return m.flags.EnableTracing</span>
+        case "ExperimentalFeatures":<span class="cov8" title="1">
+                return m.flags.ExperimentalFeatures</span>
+        }
+
+        // Check custom flags
+        <span class="cov8" title="1">if m.flags.CustomFlags != nil </span><span class="cov8" title="1">{
+                if value, exists := m.flags.CustomFlags[flagName]; exists </span><span class="cov8" title="1">{
+                        return value
+                }</span>
+        }
+
+        <span class="cov8" title="1">return false</span>
+}
+
+// SetFlag sets a custom feature flag
+func (m *FeatureFlagManager) SetFlag(flagName string, enabled bool) <span class="cov8" title="1">{
+        m.mutex.Lock()
+        defer m.mutex.Unlock()
+
+        if m.flags == nil </span><span class="cov8" title="1">{
+                return // Cannot set flags on nil FeatureFlags
+        }</span>
+
+        // Initialize custom flags if nil
+        <span class="cov8" title="1">if m.flags.CustomFlags == nil </span><span class="cov8" title="1">{
+                m.flags.CustomFlags = make(map[string]bool)
+        }</span>
+
+        <span class="cov8" title="1">m.flags.CustomFlags[flagName] = enabled</span>
+}
+
+// GetAllFlags returns a map of all flags (standard and custom) with their values
+func (m *FeatureFlagManager) GetAllFlags() map[string]bool <span class="cov8" title="1">{
+        m.mutex.RLock()
+        defer m.mutex.RUnlock()
+
+        result := make(map[string]bool)
+
+        // Add standard flags
+        if m.flags != nil </span><span class="cov8" title="1">{
+                result["EnableWebhooks"] = m.flags.EnableWebhooks
+                result["EnableMetrics"] = m.flags.EnableMetrics
+                result["EnableTracing"] = m.flags.EnableTracing
+                result["ExperimentalFeatures"] = m.flags.ExperimentalFeatures
+
+                // Add custom flags
+                if m.flags.CustomFlags != nil </span><span class="cov8" title="1">{
+                        for k, v := range m.flags.CustomFlags </span><span class="cov8" title="1">{
+                                result[k] = v
+                        }</span>
+                }
+        } else<span class="cov8" title="1"> {
+                // Default values when flags is nil
+                result["EnableWebhooks"] = false
+                result["EnableMetrics"] = false
+                result["EnableTracing"] = false
+                result["ExperimentalFeatures"] = false
+        }</span>
+
+        <span class="cov8" title="1">return result</span>
+}
+
+// GetEnabledFlags returns a slice of flag names that are currently enabled
+func (m *FeatureFlagManager) GetEnabledFlags() []string <span class="cov8" title="1">{
+        allFlags := m.GetAllFlags()
+        var enabled []string
+
+        for flagName, isEnabled := range allFlags </span><span class="cov8" title="1">{
+                if isEnabled </span><span class="cov8" title="1">{
+                        enabled = append(enabled, flagName)
+                }</span>
+        }
+
+        // Sort for consistent ordering
+        <span class="cov8" title="1">sort.Strings(enabled)
+        return enabled</span>
+}
+
+// IsAnyEnabled checks if any of the specified flags are enabled
+func (m *FeatureFlagManager) IsAnyEnabled(flagNames ...string) bool <span class="cov8" title="1">{
+        for _, flagName := range flagNames </span><span class="cov8" title="1">{
+                if m.IsEnabled(flagName) </span><span class="cov8" title="1">{
+                        return true
+                }</span>
+        }
+        <span class="cov8" title="1">return false</span>
+}
+
+// IsAllEnabled checks if all of the specified flags are enabled
+func (m *FeatureFlagManager) IsAllEnabled(flagNames ...string) bool <span class="cov8" title="1">{
+        if len(flagNames) == 0 </span><span class="cov8" title="1">{
+                return true // vacuously true
+        }</span>
+
+        <span class="cov8" title="1">for _, flagName := range flagNames </span><span class="cov8" title="1">{
+                if !m.IsEnabled(flagName) </span><span class="cov8" title="1">{
+                        return false
+                }</span>
+        }
+        <span class="cov8" title="1">return true</span>
+}
+
+// WithEnvironmentOverrides returns a new FeatureFlagManager with environment-specific overrides applied
+func (m *FeatureFlagManager) WithEnvironmentOverrides(environment string) *FeatureFlagManager <span class="cov8" title="1">{
+        m.mutex.RLock()
+        clonedFlags := m.cloneFlags()
+        m.mutex.RUnlock()
+
+        // Apply environment-specific overrides
+        switch environment </span>{
+        case "production":<span class="cov8" title="1">
+                // Production should be conservative
+                clonedFlags.EnableTracing = false        // Disable tracing in production for performance
+                clonedFlags.ExperimentalFeatures = false</span> // Never allow experimental features in production
+
+        case "staging":<span class="cov8" title="1">
+                // Staging allows more features for testing
+                clonedFlags.EnableTracing = true         // Enable tracing in staging for debugging
+                clonedFlags.ExperimentalFeatures = false</span> // Still disable experimental features for safety
+
+        case "development":<span class="cov8" title="1">
+                // Development environment allows all features
+                clonedFlags.EnableMetrics = true        // Always enable metrics in development
+                clonedFlags.EnableTracing = true        // Enable tracing for debugging
+                clonedFlags.ExperimentalFeatures = true</span> // Allow experimental features in development
+
+        case "test":<span class="cov0" title="0">
+                // Test environment typically mirrors production but may need specific flags
+                clonedFlags.EnableTracing = false
+                clonedFlags.ExperimentalFeatures = false</span>
+        }
+
+        <span class="cov8" title="1">return NewFeatureFlagManager(clonedFlags)</span>
+}
+
+// Clone creates a deep copy of the FeatureFlagManager
+func (m *FeatureFlagManager) Clone() *FeatureFlagManager <span class="cov8" title="1">{
+        m.mutex.RLock()
+        defer m.mutex.RUnlock()
+
+        clonedFlags := m.cloneFlags()
+        return NewFeatureFlagManager(clonedFlags)
+}</span>
+
+// cloneFlags creates a deep copy of FeatureFlags (internal method, caller must hold lock)
+func (m *FeatureFlagManager) cloneFlags() *FeatureFlags <span class="cov8" title="1">{
+        if m.flags == nil </span><span class="cov8" title="1">{
+                return &amp;FeatureFlags{
+                        CustomFlags: make(map[string]bool),
+                }
+        }</span>
+
+        <span class="cov8" title="1">cloned := &amp;FeatureFlags{
+                EnableWebhooks:       m.flags.EnableWebhooks,
+                EnableMetrics:        m.flags.EnableMetrics,
+                EnableTracing:        m.flags.EnableTracing,
+                ExperimentalFeatures: m.flags.ExperimentalFeatures,
+                CustomFlags:          make(map[string]bool),
+        }
+
+        // Deep copy custom flags
+        if m.flags.CustomFlags != nil </span><span class="cov8" title="1">{
+                for k, v := range m.flags.CustomFlags </span><span class="cov8" title="1">{
+                        cloned.CustomFlags[k] = v
+                }</span>
+        }
+
+        <span class="cov8" title="1">return cloned</span>
+}
+
+// String returns a string representation of all feature flags
+func (m *FeatureFlagManager) String() string <span class="cov8" title="1">{
+        allFlags := m.GetAllFlags()
+
+        var parts []string
+
+        // Add standard flags in consistent order
+        standardFlags := []string{"EnableWebhooks", "EnableMetrics", "EnableTracing", "ExperimentalFeatures"}
+        for _, flag := range standardFlags </span><span class="cov8" title="1">{
+                if value, exists := allFlags[flag]; exists </span><span class="cov8" title="1">{
+                        parts = append(parts, fmt.Sprintf("%s=%t", flag, value))
+                        delete(allFlags, flag) // Remove from map so we don't include it again
+                }</span>
+        }
+
+        // Add custom flags in sorted order
+        <span class="cov8" title="1">var customFlags []string
+        for flag := range allFlags </span><span class="cov8" title="1">{
+                customFlags = append(customFlags, flag)
+        }</span>
+        <span class="cov8" title="1">sort.Strings(customFlags)
+
+        for _, flag := range customFlags </span><span class="cov8" title="1">{
+                parts = append(parts, fmt.Sprintf("%s=%t", flag, allFlags[flag]))
+        }</span>
+
+        <span class="cov8" title="1">return "FeatureFlags{" + strings.Join(parts, ", ") + "}"</span>
+}
+
+// GetStandardFlags returns the values of all standard (non-custom) feature flags
+func (m *FeatureFlagManager) GetStandardFlags() map[string]bool <span class="cov8" title="1">{
+        m.mutex.RLock()
+        defer m.mutex.RUnlock()
+
+        result := make(map[string]bool)
+
+        if m.flags != nil </span><span class="cov8" title="1">{
+                result["EnableWebhooks"] = m.flags.EnableWebhooks
+                result["EnableMetrics"] = m.flags.EnableMetrics
+                result["EnableTracing"] = m.flags.EnableTracing
+                result["ExperimentalFeatures"] = m.flags.ExperimentalFeatures
+        }</span> else<span class="cov8" title="1"> {
+                result["EnableWebhooks"] = false
+                result["EnableMetrics"] = false
+                result["EnableTracing"] = false
+                result["ExperimentalFeatures"] = false
+        }</span>
+
+        <span class="cov8" title="1">return result</span>
+}
+
+// GetCustomFlags returns a copy of all custom feature flags
+func (m *FeatureFlagManager) GetCustomFlags() map[string]bool <span class="cov8" title="1">{
+        m.mutex.RLock()
+        defer m.mutex.RUnlock()
+
+        result := make(map[string]bool)
+
+        if m.flags != nil &amp;&amp; m.flags.CustomFlags != nil </span><span class="cov8" title="1">{
+                for k, v := range m.flags.CustomFlags </span><span class="cov8" title="1">{
+                        result[k] = v
+                }</span>
+        }
+
+        <span class="cov8" title="1">return result</span>
+}
+
+// HasFlag checks if a flag exists (regardless of its value)
+func (m *FeatureFlagManager) HasFlag(flagName string) bool <span class="cov8" title="1">{
+        m.mutex.RLock()
+        defer m.mutex.RUnlock()
+
+        if m.flags == nil </span><span class="cov8" title="1">{
+                return false
+        }</span>
+
+        // Check if it's a standard flag
+        <span class="cov8" title="1">standardFlags := []string{"EnableWebhooks", "EnableMetrics", "EnableTracing", "ExperimentalFeatures"}
+        for _, flag := range standardFlags </span><span class="cov8" title="1">{
+                if flag == flagName </span><span class="cov8" title="1">{
+                        return true
+                }</span>
+        }
+
+        // Check if it's a custom flag
+        <span class="cov8" title="1">if m.flags.CustomFlags != nil </span><span class="cov8" title="1">{
+                _, exists := m.flags.CustomFlags[flagName]
+                return exists
+        }</span>
+
+        <span class="cov0" title="0">return false</span>
+}
+
+// SetStandardFlag sets a standard feature flag using reflection
+func (m *FeatureFlagManager) SetStandardFlag(flagName string, enabled bool) error <span class="cov8" title="1">{
+        m.mutex.Lock()
+        defer m.mutex.Unlock()
+
+        if m.flags == nil </span><span class="cov8" title="1">{
+                m.flags = &amp;FeatureFlags{
+                        CustomFlags: make(map[string]bool),
+                }
+        }</span>
+
+        // Use reflection to set the standard flag
+        <span class="cov8" title="1">flagsValue := reflect.ValueOf(m.flags).Elem()
+        fieldValue := flagsValue.FieldByName(flagName)
+
+        if !fieldValue.IsValid() </span><span class="cov8" title="1">{
+                return fmt.Errorf("standard flag %s does not exist", flagName)
+        }</span>
+
+        <span class="cov8" title="1">if !fieldValue.CanSet() </span><span class="cov0" title="0">{
+                return fmt.Errorf("cannot set standard flag %s", flagName)
+        }</span>
+
+        <span class="cov8" title="1">if fieldValue.Kind() != reflect.Bool </span><span class="cov0" title="0">{
+                return fmt.Errorf("standard flag %s is not a boolean", flagName)
+        }</span>
+
+        <span class="cov8" title="1">fieldValue.SetBool(enabled)
+        return nil</span>
+}
+
+// RemoveCustomFlag removes a custom feature flag
+func (m *FeatureFlagManager) RemoveCustomFlag(flagName string) <span class="cov8" title="1">{
+        m.mutex.Lock()
+        defer m.mutex.Unlock()
+
+        if m.flags != nil &amp;&amp; m.flags.CustomFlags != nil </span><span class="cov8" title="1">{
+                delete(m.flags.CustomFlags, flagName)
+        }</span>
+}
+
+// ClearCustomFlags removes all custom feature flags
+func (m *FeatureFlagManager) ClearCustomFlags() <span class="cov8" title="1">{
+        m.mutex.Lock()
+        defer m.mutex.Unlock()
+
+        if m.flags != nil </span><span class="cov8" title="1">{
+                m.flags.CustomFlags = make(map[string]bool)
+        }</span>
+}
+</pre>
+
+		<pre class="file" id="file1" style="display: none">package config
+
+import (
+        "context"
+        "encoding/json"
+        "fmt"
+        "os"
+        "path/filepath"
+        "strconv"
+        "strings"
+        "time"
+
+        corev1 "k8s.io/api/core/v1"
+        "k8s.io/apimachinery/pkg/api/errors"
+        "k8s.io/apimachinery/pkg/types"
+        "sigs.k8s.io/controller-runtime/pkg/client"
+        "sigs.k8s.io/yaml"
+)
+
+// ConfigLoader handles loading configuration from various sources
+type ConfigLoader struct {
+        client    client.Client
+        namespace string
+}
+
+// LoadOptions specifies options for loading configuration
+type LoadOptions struct {
+        // FilePath specifies the path to a configuration file
+        FilePath string
+
+        // ConfigMapName specifies the name of a ConfigMap to load from
+        ConfigMapName string
+
+        // SecretName specifies the name of a Secret to load from
+        SecretName string
+
+        // LoadFromEnv indicates whether to load from environment variables
+        LoadFromEnv bool
+
+        // ValidateConfig indicates whether to validate the final configuration
+        ValidateConfig bool
+}
+
+// WatchOptions specifies options for watching configuration changes
+type WatchOptions struct {
+        // ConfigMapName specifies the ConfigMap to watch
+        ConfigMapName string
+
+        // SecretName specifies the Secret to watch
+        SecretName string
+
+        // Interval specifies how often to check for changes
+        Interval time.Duration
+}
+
+// NewConfigLoader creates a new configuration loader
+func NewConfigLoader(client client.Client, namespace string) *ConfigLoader <span class="cov8" title="1">{
+        return &amp;ConfigLoader{
+                client:    client,
+                namespace: namespace,
+        }
+}</span>
+
+// LoadFromFile loads configuration from a file (JSON or YAML)
+func (cl *ConfigLoader) LoadFromFile(filePath string) (*Config, error) <span class="cov8" title="1">{
+        if filePath == "" </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("file path cannot be empty")
+        }</span>
+
+        <span class="cov8" title="1">data, err := os.ReadFile(filePath)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("failed to read config file %s: %w", filePath, err)
+        }</span>
+
+        <span class="cov8" title="1">if len(data) == 0 </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("config file %s is empty", filePath)
+        }</span>
+
+        <span class="cov8" title="1">config := &amp;Config{}
+
+        // Determine file type by extension
+        ext := strings.ToLower(filepath.Ext(filePath))
+        switch ext </span>{
+        case ".json":<span class="cov8" title="1">
+                if err := json.Unmarshal(data, config); err != nil </span><span class="cov8" title="1">{
+                        return nil, fmt.Errorf("failed to parse JSON config file %s: %w", filePath, err)
+                }</span>
+        case ".yaml", ".yml":<span class="cov8" title="1">
+                if err := yaml.Unmarshal(data, config); err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to parse YAML config file %s: %w", filePath, err)
+                }</span>
+        default:<span class="cov0" title="0">
+                // Try JSON first, then YAML
+                if err := json.Unmarshal(data, config); err != nil </span><span class="cov0" title="0">{
+                        if yamlErr := yaml.Unmarshal(data, config); yamlErr != nil </span><span class="cov0" title="0">{
+                                return nil, fmt.Errorf("failed to parse config file %s as JSON or YAML: JSON error: %v, YAML error: %v", filePath, err, yamlErr)
+                        }</span>
+                }
+        }
+
+        <span class="cov8" title="1">return config, nil</span>
+}
+
+// LoadFromEnv loads configuration from environment variables
+func (cl *ConfigLoader) LoadFromEnv() (*Config, error) <span class="cov8" title="1">{
+        config := &amp;Config{
+                ConfigSources: make(map[string]ConfigSource),
+        }
+
+        // Load basic fields
+        if env := os.Getenv("CONFIG_ENVIRONMENT"); env != "" </span><span class="cov8" title="1">{
+                config.Environment = env
+                config.ConfigSources["environment"] = ConfigSourceEnv
+        }</span>
+
+        // Load operator configuration
+        <span class="cov8" title="1">if logLevel := os.Getenv("CONFIG_OPERATOR_LOG_LEVEL"); logLevel != "" </span><span class="cov8" title="1">{
+                config.Operator.LogLevel = logLevel
+                config.ConfigSources["operator.logLevel"] = ConfigSourceEnv
+        }</span>
+
+        <span class="cov8" title="1">if reconcileInterval := os.Getenv("CONFIG_OPERATOR_RECONCILE_INTERVAL"); reconcileInterval != "" </span><span class="cov8" title="1">{
+                if duration, err := time.ParseDuration(reconcileInterval); err == nil </span><span class="cov8" title="1">{
+                        config.Operator.ReconcileInterval = duration
+                        config.ConfigSources["operator.reconcileInterval"] = ConfigSourceEnv
+                }</span>
+        }
+
+        <span class="cov8" title="1">if metricsAddr := os.Getenv("CONFIG_OPERATOR_METRICS_BIND_ADDRESS"); metricsAddr != "" </span><span class="cov0" title="0">{
+                config.Operator.MetricsBindAddress = metricsAddr
+                config.ConfigSources["operator.metricsBindAddress"] = ConfigSourceEnv
+        }</span>
+
+        <span class="cov8" title="1">if healthAddr := os.Getenv("CONFIG_OPERATOR_HEALTH_PROBE_BIND_ADDRESS"); healthAddr != "" </span><span class="cov0" title="0">{
+                config.Operator.HealthProbeBindAddress = healthAddr
+                config.ConfigSources["operator.healthProbeBindAddress"] = ConfigSourceEnv
+        }</span>
+
+        <span class="cov8" title="1">if leaderElection := os.Getenv("CONFIG_OPERATOR_LEADER_ELECTION"); leaderElection != "" </span><span class="cov0" title="0">{
+                if enabled, err := strconv.ParseBool(leaderElection); err == nil </span><span class="cov0" title="0">{
+                        config.Operator.LeaderElection = enabled
+                        config.ConfigSources["operator.leaderElection"] = ConfigSourceEnv
+                }</span>
+        }
+
+        // Load Cloudflare configuration
+        <span class="cov8" title="1">if apiTimeout := os.Getenv("CONFIG_CLOUDFLARE_API_TIMEOUT"); apiTimeout != "" </span><span class="cov8" title="1">{
+                if duration, err := time.ParseDuration(apiTimeout); err == nil </span><span class="cov8" title="1">{
+                        config.Cloudflare.APITimeout = duration
+                        config.ConfigSources["cloudflare.apiTimeout"] = ConfigSourceEnv
+                }</span>
+        }
+
+        <span class="cov8" title="1">if rateLimitRPS := os.Getenv("CONFIG_CLOUDFLARE_RATE_LIMIT_RPS"); rateLimitRPS != "" </span><span class="cov8" title="1">{
+                if rps, err := strconv.Atoi(rateLimitRPS); err == nil </span><span class="cov8" title="1">{
+                        config.Cloudflare.RateLimitRPS = rps
+                        config.ConfigSources["cloudflare.rateLimitRPS"] = ConfigSourceEnv
+                }</span>
+        }
+
+        <span class="cov8" title="1">if retryAttempts := os.Getenv("CONFIG_CLOUDFLARE_RETRY_ATTEMPTS"); retryAttempts != "" </span><span class="cov0" title="0">{
+                if attempts, err := strconv.Atoi(retryAttempts); err == nil </span><span class="cov0" title="0">{
+                        config.Cloudflare.RetryAttempts = attempts
+                        config.ConfigSources["cloudflare.retryAttempts"] = ConfigSourceEnv
+                }</span>
+        }
+
+        <span class="cov8" title="1">if retryDelay := os.Getenv("CONFIG_CLOUDFLARE_RETRY_DELAY"); retryDelay != "" </span><span class="cov0" title="0">{
+                if duration, err := time.ParseDuration(retryDelay); err == nil </span><span class="cov0" title="0">{
+                        config.Cloudflare.RetryDelay = duration
+                        config.ConfigSources["cloudflare.retryDelay"] = ConfigSourceEnv
+                }</span>
+        }
+
+        // Load feature flags
+        <span class="cov8" title="1">config.Features = &amp;FeatureFlags{
+                CustomFlags: make(map[string]bool),
+        }
+
+        if enableWebhooks := os.Getenv("CONFIG_FEATURES_ENABLE_WEBHOOKS"); enableWebhooks != "" </span><span class="cov8" title="1">{
+                if enabled, err := strconv.ParseBool(enableWebhooks); err == nil </span><span class="cov8" title="1">{
+                        config.Features.EnableWebhooks = enabled
+                        config.ConfigSources["features.enableWebhooks"] = ConfigSourceEnv
+                }</span>
+        }
+
+        <span class="cov8" title="1">if enableMetrics := os.Getenv("CONFIG_FEATURES_ENABLE_METRICS"); enableMetrics != "" </span><span class="cov8" title="1">{
+                if enabled, err := strconv.ParseBool(enableMetrics); err == nil </span><span class="cov8" title="1">{
+                        config.Features.EnableMetrics = enabled
+                        config.ConfigSources["features.enableMetrics"] = ConfigSourceEnv
+                }</span>
+        }
+
+        <span class="cov8" title="1">if enableTracing := os.Getenv("CONFIG_FEATURES_ENABLE_TRACING"); enableTracing != "" </span><span class="cov8" title="1">{
+                if enabled, err := strconv.ParseBool(enableTracing); err == nil </span><span class="cov8" title="1">{
+                        config.Features.EnableTracing = enabled
+                        config.ConfigSources["features.enableTracing"] = ConfigSourceEnv
+                }</span>
+        }
+
+        <span class="cov8" title="1">if experimentalFeatures := os.Getenv("CONFIG_FEATURES_EXPERIMENTAL_FEATURES"); experimentalFeatures != "" </span><span class="cov8" title="1">{
+                if enabled, err := strconv.ParseBool(experimentalFeatures); err == nil </span><span class="cov8" title="1">{
+                        config.Features.ExperimentalFeatures = enabled
+                        config.ConfigSources["features.experimentalFeatures"] = ConfigSourceEnv
+                }</span>
+        }
+
+        // Load performance configuration
+        <span class="cov8" title="1">if maxConcurrent := os.Getenv("CONFIG_PERFORMANCE_MAX_CONCURRENT_RECONCILES"); maxConcurrent != "" </span><span class="cov8" title="1">{
+                if max, err := strconv.Atoi(maxConcurrent); err == nil </span><span class="cov8" title="1">{
+                        config.Performance.MaxConcurrentReconciles = max
+                        config.ConfigSources["performance.maxConcurrentReconciles"] = ConfigSourceEnv
+                }</span>
+        }
+
+        <span class="cov8" title="1">if resyncPeriod := os.Getenv("CONFIG_PERFORMANCE_RESYNC_PERIOD"); resyncPeriod != "" </span><span class="cov8" title="1">{
+                if duration, err := time.ParseDuration(resyncPeriod); err == nil </span><span class="cov8" title="1">{
+                        config.Performance.ResyncPeriod = duration
+                        config.ConfigSources["performance.resyncPeriod"] = ConfigSourceEnv
+                }</span>
+        }
+
+        <span class="cov8" title="1">if leaseDuration := os.Getenv("CONFIG_PERFORMANCE_LEADER_ELECTION_LEASE_DURATION"); leaseDuration != "" </span><span class="cov8" title="1">{
+                if duration, err := time.ParseDuration(leaseDuration); err == nil </span><span class="cov8" title="1">{
+                        config.Performance.LeaderElectionLeaseDuration = duration
+                        config.ConfigSources["performance.leaderElectionLeaseDuration"] = ConfigSourceEnv
+                }</span>
+        }
+
+        <span class="cov8" title="1">if renewDeadline := os.Getenv("CONFIG_PERFORMANCE_LEADER_ELECTION_RENEW_DEADLINE"); renewDeadline != "" </span><span class="cov0" title="0">{
+                if duration, err := time.ParseDuration(renewDeadline); err == nil </span><span class="cov0" title="0">{
+                        config.Performance.LeaderElectionRenewDeadline = duration
+                        config.ConfigSources["performance.leaderElectionRenewDeadline"] = ConfigSourceEnv
+                }</span>
+        }
+
+        <span class="cov8" title="1">if retryPeriod := os.Getenv("CONFIG_PERFORMANCE_LEADER_ELECTION_RETRY_PERIOD"); retryPeriod != "" </span><span class="cov0" title="0">{
+                if duration, err := time.ParseDuration(retryPeriod); err == nil </span><span class="cov0" title="0">{
+                        config.Performance.LeaderElectionRetryPeriod = duration
+                        config.ConfigSources["performance.leaderElectionRetryPeriod"] = ConfigSourceEnv
+                }</span>
+        }
+
+        <span class="cov8" title="1">return config, nil</span>
+}
+
+// LoadFromConfigMap loads configuration from a Kubernetes ConfigMap
+func (cl *ConfigLoader) LoadFromConfigMap(ctx context.Context, name string) (*Config, error) <span class="cov8" title="1">{
+        if cl.client == nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("kubernetes client is required for loading from ConfigMap")
+        }</span>
+
+        <span class="cov8" title="1">configMap := &amp;corev1.ConfigMap{}
+        err := cl.client.Get(ctx, types.NamespacedName{
+                Name:      name,
+                Namespace: cl.namespace,
+        }, configMap)
+        if err != nil </span><span class="cov8" title="1">{
+                if errors.IsNotFound(err) </span><span class="cov8" title="1">{
+                        return nil, fmt.Errorf("ConfigMap %s/%s not found", cl.namespace, name)
+                }</span>
+                <span class="cov0" title="0">return nil, fmt.Errorf("failed to get ConfigMap %s/%s: %w", cl.namespace, name, err)</span>
+        }
+
+        <span class="cov8" title="1">config := &amp;Config{
+                ConfigSources: make(map[string]ConfigSource),
+        }
+
+        // Try to load from structured config files first
+        for key, value := range configMap.Data </span><span class="cov8" title="1">{
+                if key == "config.json" </span><span class="cov8" title="1">{
+                        tempConfig := &amp;Config{}
+                        if err := json.Unmarshal([]byte(value), tempConfig); err == nil </span><span class="cov8" title="1">{
+                                config = config.Merge(tempConfig)
+                                // Mark all fields as coming from ConfigMap
+                                cl.markFieldsFromSource(config, ConfigSourceConfigMap)
+                                return config, nil
+                        }</span>
+                } else<span class="cov8" title="1"> if key == "config.yaml" || key == "config.yml" </span><span class="cov8" title="1">{
+                        tempConfig := &amp;Config{}
+                        if err := yaml.Unmarshal([]byte(value), tempConfig); err == nil </span><span class="cov8" title="1">{
+                                config = config.Merge(tempConfig)
+                                // Mark all fields as coming from ConfigMap
+                                cl.markFieldsFromSource(config, ConfigSourceConfigMap)
+                                return config, nil
+                        }</span>
+                }
+        }
+
+        // Load from individual keys
+        <span class="cov8" title="1">if env, exists := configMap.Data["environment"]; exists </span><span class="cov8" title="1">{
+                config.Environment = env
+                config.ConfigSources["environment"] = ConfigSourceConfigMap
+        }</span>
+
+        <span class="cov8" title="1">if logLevel, exists := configMap.Data["log-level"]; exists </span><span class="cov8" title="1">{
+                config.Operator.LogLevel = logLevel
+                config.ConfigSources["operator.logLevel"] = ConfigSourceConfigMap
+        }</span>
+
+        <span class="cov8" title="1">if reconcileInterval, exists := configMap.Data["reconcile-interval"]; exists </span><span class="cov0" title="0">{
+                if duration, err := time.ParseDuration(reconcileInterval); err == nil </span><span class="cov0" title="0">{
+                        config.Operator.ReconcileInterval = duration
+                        config.ConfigSources["operator.reconcileInterval"] = ConfigSourceConfigMap
+                }</span>
+        }
+
+        <span class="cov8" title="1">if apiTimeout, exists := configMap.Data["api-timeout"]; exists </span><span class="cov8" title="1">{
+                if duration, err := time.ParseDuration(apiTimeout); err == nil </span><span class="cov8" title="1">{
+                        config.Cloudflare.APITimeout = duration
+                        config.ConfigSources["cloudflare.apiTimeout"] = ConfigSourceConfigMap
+                }</span>
+        }
+
+        <span class="cov8" title="1">if rateLimitRPS, exists := configMap.Data["rate-limit-rps"]; exists </span><span class="cov8" title="1">{
+                if rps, err := strconv.Atoi(rateLimitRPS); err == nil </span><span class="cov8" title="1">{
+                        config.Cloudflare.RateLimitRPS = rps
+                        config.ConfigSources["cloudflare.rateLimitRPS"] = ConfigSourceConfigMap
+                }</span>
+        }
+
+        <span class="cov8" title="1">return config, nil</span>
+}
+
+// LoadFromSecret loads configuration from a Kubernetes Secret
+func (cl *ConfigLoader) LoadFromSecret(ctx context.Context, name string) (*Config, error) <span class="cov8" title="1">{
+        if cl.client == nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("kubernetes client is required for loading from Secret")
+        }</span>
+
+        <span class="cov8" title="1">secret := &amp;corev1.Secret{}
+        err := cl.client.Get(ctx, types.NamespacedName{
+                Name:      name,
+                Namespace: cl.namespace,
+        }, secret)
+        if err != nil </span><span class="cov8" title="1">{
+                if errors.IsNotFound(err) </span><span class="cov8" title="1">{
+                        return nil, fmt.Errorf("Secret %s/%s not found", cl.namespace, name)
+                }</span>
+                <span class="cov0" title="0">return nil, fmt.Errorf("failed to get Secret %s/%s: %w", cl.namespace, name, err)</span>
+        }
+
+        <span class="cov8" title="1">config := &amp;Config{
+                ConfigSources: make(map[string]ConfigSource),
+        }
+
+        // Try to load from structured config files first
+        for key, value := range secret.Data </span><span class="cov8" title="1">{
+                if key == "config.json" </span><span class="cov8" title="1">{
+                        tempConfig := &amp;Config{}
+                        if err := json.Unmarshal(value, tempConfig); err == nil </span><span class="cov8" title="1">{
+                                config = config.Merge(tempConfig)
+                                // Mark all fields as coming from Secret
+                                cl.markFieldsFromSource(config, ConfigSourceSecret)
+                                return config, nil
+                        }</span>
+                } else<span class="cov8" title="1"> if key == "config.yaml" || key == "config.yml" </span><span class="cov0" title="0">{
+                        tempConfig := &amp;Config{}
+                        if err := yaml.Unmarshal(value, tempConfig); err == nil </span><span class="cov0" title="0">{
+                                config = config.Merge(tempConfig)
+                                // Mark all fields as coming from Secret
+                                cl.markFieldsFromSource(config, ConfigSourceSecret)
+                                return config, nil
+                        }</span>
+                }
+        }
+
+        // Load from individual keys
+        <span class="cov8" title="1">if env, exists := secret.Data["environment"]; exists </span><span class="cov0" title="0">{
+                config.Environment = string(env)
+                config.ConfigSources["environment"] = ConfigSourceSecret
+        }</span>
+
+        <span class="cov8" title="1">if apiTimeout, exists := secret.Data["api-timeout"]; exists </span><span class="cov8" title="1">{
+                if duration, err := time.ParseDuration(string(apiTimeout)); err == nil </span><span class="cov8" title="1">{
+                        config.Cloudflare.APITimeout = duration
+                        config.ConfigSources["cloudflare.apiTimeout"] = ConfigSourceSecret
+                }</span>
+        }
+
+        <span class="cov8" title="1">if rateLimitRPS, exists := secret.Data["rate-limit-rps"]; exists </span><span class="cov8" title="1">{
+                if rps, err := strconv.Atoi(string(rateLimitRPS)); err == nil </span><span class="cov8" title="1">{
+                        config.Cloudflare.RateLimitRPS = rps
+                        config.ConfigSources["cloudflare.rateLimitRPS"] = ConfigSourceSecret
+                }</span>
+        }
+
+        <span class="cov8" title="1">return config, nil</span>
+}
+
+// LoadWithPriority loads configuration from multiple sources with priority:
+// Environment variables &gt; ConfigMap &gt; Secret &gt; File &gt; Defaults
+func (cl *ConfigLoader) LoadWithPriority(ctx context.Context, options LoadOptions) (*Config, map[string]ConfigSource, error) <span class="cov8" title="1">{
+        if err := options.Validate(); err != nil </span><span class="cov0" title="0">{
+                return nil, nil, fmt.Errorf("invalid load options: %w", err)
+        }</span>
+
+        // Start with defaults
+        <span class="cov8" title="1">config := NewConfig()
+        sources := make(map[string]ConfigSource)
+
+        // Mark all default values
+        cl.markFieldsFromSource(config, ConfigSourceDefault)
+        for key := range config.ConfigSources </span><span class="cov8" title="1">{
+                sources[key] = ConfigSourceDefault
+        }</span>
+
+        // Load from file (lowest priority after defaults)
+        <span class="cov8" title="1">if options.FilePath != "" </span><span class="cov8" title="1">{
+                fileConfig, err := cl.LoadFromFile(options.FilePath)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, nil, fmt.Errorf("failed to load from file: %w", err)
+                }</span>
+                <span class="cov8" title="1">config = config.Merge(fileConfig)
+                cl.markFieldsFromSource(fileConfig, ConfigSourceFile)
+                for key := range fileConfig.ConfigSources </span><span class="cov8" title="1">{
+                        sources[key] = ConfigSourceFile
+                }</span>
+        }
+
+        // Load from Secret
+        <span class="cov8" title="1">if options.SecretName != "" </span><span class="cov0" title="0">{
+                secretConfig, err := cl.LoadFromSecret(ctx, options.SecretName)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, nil, fmt.Errorf("failed to load from Secret: %w", err)
+                }</span>
+                <span class="cov0" title="0">config = config.Merge(secretConfig)
+                for key, source := range secretConfig.ConfigSources </span><span class="cov0" title="0">{
+                        sources[key] = source
+                }</span>
+        }
+
+        // Load from ConfigMap
+        <span class="cov8" title="1">if options.ConfigMapName != "" </span><span class="cov8" title="1">{
+                configMapConfig, err := cl.LoadFromConfigMap(ctx, options.ConfigMapName)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, nil, fmt.Errorf("failed to load from ConfigMap: %w", err)
+                }</span>
+                <span class="cov8" title="1">config = config.Merge(configMapConfig)
+                for key, source := range configMapConfig.ConfigSources </span><span class="cov8" title="1">{
+                        sources[key] = source
+                }</span>
+        }
+
+        // Load from environment variables (highest priority)
+        <span class="cov8" title="1">if options.LoadFromEnv </span><span class="cov8" title="1">{
+                envConfig, err := cl.LoadFromEnv()
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, nil, fmt.Errorf("failed to load from environment: %w", err)
+                }</span>
+                <span class="cov8" title="1">config = config.Merge(envConfig)
+                for key, source := range envConfig.ConfigSources </span><span class="cov8" title="1">{
+                        sources[key] = source
+                }</span>
+        }
+
+        // Validate if requested
+        <span class="cov8" title="1">if options.ValidateConfig </span><span class="cov8" title="1">{
+                if err := config.Validate(); err != nil </span><span class="cov8" title="1">{
+                        return nil, nil, fmt.Errorf("configuration validation failed: %w", err)
+                }</span>
+        }
+
+        <span class="cov8" title="1">return config, sources, nil</span>
+}
+
+// WatchConfig watches for configuration changes and returns channels for updates
+func (cl *ConfigLoader) WatchConfig(ctx context.Context, options WatchOptions) (&lt;-chan *Config, &lt;-chan error) <span class="cov8" title="1">{
+        if err := options.Validate(); err != nil </span><span class="cov0" title="0">{
+                errorChan := make(chan error, 1)
+                errorChan &lt;- fmt.Errorf("invalid watch options: %w", err)
+                close(errorChan)
+                return nil, errorChan
+        }</span>
+
+        <span class="cov8" title="1">configChan := make(chan *Config, 1)
+        errorChan := make(chan error, 1)
+
+        go func() </span><span class="cov8" title="1">{
+                defer close(configChan)
+                defer close(errorChan)
+
+                ticker := time.NewTicker(options.Interval)
+                defer ticker.Stop()
+
+                var lastConfig *Config
+
+                // Load initial configuration
+                loadOptions := LoadOptions{
+                        ConfigMapName:  options.ConfigMapName,
+                        SecretName:     options.SecretName,
+                        LoadFromEnv:    true,
+                        ValidateConfig: true,
+                }
+
+                config, _, err := cl.LoadWithPriority(ctx, loadOptions)
+                if err != nil </span><span class="cov0" title="0">{
+                        select </span>{
+                        case errorChan &lt;- err:<span class="cov0" title="0"></span>
+                        case &lt;-ctx.Done():<span class="cov0" title="0">
+                                return</span>
+                        }
+                        <span class="cov0" title="0">return</span>
+                }
+
+                <span class="cov8" title="1">lastConfig = config
+                select </span>{
+                case configChan &lt;- config:<span class="cov8" title="1"></span>
+                case &lt;-ctx.Done():<span class="cov0" title="0">
+                        return</span>
+                }
+
+                // Watch for changes
+                <span class="cov8" title="1">for </span><span class="cov8" title="1">{
+                        select </span>{
+                        case &lt;-ticker.C:<span class="cov0" title="0">
+                                newConfig, _, err := cl.LoadWithPriority(ctx, loadOptions)
+                                if err != nil </span><span class="cov0" title="0">{
+                                        select </span>{
+                                        case errorChan &lt;- err:<span class="cov0" title="0"></span>
+                                        case &lt;-ctx.Done():<span class="cov0" title="0">
+                                                return</span>
+                                        }
+                                        <span class="cov0" title="0">continue</span>
+                                }
+
+                                // Check if configuration changed (simple string comparison)
+                                <span class="cov0" title="0">lastJSON, _ := lastConfig.ToJSON()
+                                newJSON, _ := newConfig.ToJSON()
+                                if string(lastJSON) != string(newJSON) </span><span class="cov0" title="0">{
+                                        lastConfig = newConfig
+                                        select </span>{
+                                        case configChan &lt;- newConfig:<span class="cov0" title="0"></span>
+                                        case &lt;-ctx.Done():<span class="cov0" title="0">
+                                                return</span>
+                                        }
+                                }
+
+                        case &lt;-ctx.Done():<span class="cov8" title="1">
+                                return</span>
+                        }
+                }
+        }()
+
+        <span class="cov8" title="1">return configChan, errorChan</span>
+}
+
+// markFieldsFromSource marks all non-zero fields in config as coming from the specified source
+func (cl *ConfigLoader) markFieldsFromSource(config *Config, source ConfigSource) <span class="cov8" title="1">{
+        if config.ConfigSources == nil </span><span class="cov8" title="1">{
+                config.ConfigSources = make(map[string]ConfigSource)
+        }</span>
+
+        <span class="cov8" title="1">if config.Environment != "" </span><span class="cov8" title="1">{
+                config.ConfigSources["environment"] = source
+        }</span>
+        <span class="cov8" title="1">if config.Operator.LogLevel != "" </span><span class="cov8" title="1">{
+                config.ConfigSources["operator.logLevel"] = source
+        }</span>
+        <span class="cov8" title="1">if config.Operator.ReconcileInterval != 0 </span><span class="cov8" title="1">{
+                config.ConfigSources["operator.reconcileInterval"] = source
+        }</span>
+        <span class="cov8" title="1">if config.Operator.MetricsBindAddress != "" </span><span class="cov8" title="1">{
+                config.ConfigSources["operator.metricsBindAddress"] = source
+        }</span>
+        <span class="cov8" title="1">if config.Operator.HealthProbeBindAddress != "" </span><span class="cov8" title="1">{
+                config.ConfigSources["operator.healthProbeBindAddress"] = source
+        }</span>
+        <span class="cov8" title="1">if config.Cloudflare.APITimeout != 0 </span><span class="cov8" title="1">{
+                config.ConfigSources["cloudflare.apiTimeout"] = source
+        }</span>
+        <span class="cov8" title="1">if config.Cloudflare.RateLimitRPS != 0 </span><span class="cov8" title="1">{
+                config.ConfigSources["cloudflare.rateLimitRPS"] = source
+        }</span>
+        <span class="cov8" title="1">if config.Performance.MaxConcurrentReconciles != 0 </span><span class="cov8" title="1">{
+                config.ConfigSources["performance.maxConcurrentReconciles"] = source
+        }</span>
+        <span class="cov8" title="1">if config.Performance.ResyncPeriod != 0 </span><span class="cov8" title="1">{
+                config.ConfigSources["performance.resyncPeriod"] = source
+        }</span>
+        <span class="cov8" title="1">if config.Performance.LeaderElectionLeaseDuration != 0 </span><span class="cov8" title="1">{
+                config.ConfigSources["performance.leaderElectionLeaseDuration"] = source
+        }</span>
+}
+
+// Validate validates the load options
+func (opts *LoadOptions) Validate() error <span class="cov8" title="1">{
+        if opts.FilePath == "" &amp;&amp; opts.ConfigMapName == "" &amp;&amp; opts.SecretName == "" &amp;&amp; !opts.LoadFromEnv </span><span class="cov8" title="1">{
+                return fmt.Errorf("at least one configuration source must be specified")
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+
+// Validate validates the watch options
+func (opts *WatchOptions) Validate() error <span class="cov8" title="1">{
+        if opts.ConfigMapName == "" &amp;&amp; opts.SecretName == "" </span><span class="cov8" title="1">{
+                return fmt.Errorf("at least one resource to watch must be specified")
+        }</span>
+
+        <span class="cov8" title="1">if opts.Interval &lt; 1*time.Second </span><span class="cov8" title="1">{
+                return fmt.Errorf("watch interval must be at least 1 second, got: %v", opts.Interval)
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+</pre>
+
+		<pre class="file" id="file2" style="display: none">package config
+
+import (
+        "context"
+        "fmt"
+        "sync"
+        "time"
+
+        "sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+// ConfigChangeCallback is called when configuration changes
+type ConfigChangeCallback func(oldConfig, newConfig *Config)
+
+// ManagerOptions contains options for the configuration manager
+type ManagerOptions struct {
+        // Environment specifies the default environment if not loaded from config
+        Environment string
+
+        // AutoReload enables automatic configuration reloading
+        AutoReload bool
+
+        // ReloadInterval specifies how often to check for configuration changes
+        ReloadInterval time.Duration
+
+        // ValidateOnLoad validates configuration after loading
+        ValidateOnLoad bool
+}
+
+// ConfigManager manages configuration loading, reloading, and change notifications
+type ConfigManager struct {
+        client    client.Client
+        namespace string
+        options   *ManagerOptions
+
+        // Current state
+        currentConfig  *Config
+        currentSources map[string]ConfigSource
+        loadedAt       time.Time
+        loadOptions    *LoadOptions
+
+        // Thread safety
+        mutex sync.RWMutex
+
+        // Change notifications
+        callbacks []ConfigChangeCallback
+
+        // Auto-reload control
+        reloadCancel context.CancelFunc
+
+        // Internal components
+        loader             *ConfigLoader
+        featureFlagManager *FeatureFlagManager
+}
+
+// NewConfigManager creates a new configuration manager with default options
+func NewConfigManager(client client.Client, namespace string) *ConfigManager <span class="cov8" title="1">{
+        return NewConfigManagerWithOptions(client, namespace, &amp;ManagerOptions{
+                Environment:    "production",
+                AutoReload:     false,
+                ReloadInterval: 5 * time.Minute,
+                ValidateOnLoad: true,
+        })
+}</span>
+
+// NewConfigManagerWithOptions creates a new configuration manager with custom options
+func NewConfigManagerWithOptions(client client.Client, namespace string, options *ManagerOptions) *ConfigManager <span class="cov8" title="1">{
+        if options == nil </span><span class="cov0" title="0">{
+                options = &amp;ManagerOptions{
+                        Environment:    "production",
+                        AutoReload:     false,
+                        ReloadInterval: 5 * time.Minute,
+                        ValidateOnLoad: true,
+                }
+        }</span>
+
+        // Set defaults for missing values
+        <span class="cov8" title="1">if options.ReloadInterval == 0 </span><span class="cov8" title="1">{
+                options.ReloadInterval = 5 * time.Minute
+        }</span>
+
+        <span class="cov8" title="1">return &amp;ConfigManager{
+                client:    client,
+                namespace: namespace,
+                options:   options,
+                loader:    NewConfigLoader(client, namespace),
+                callbacks: make([]ConfigChangeCallback, 0),
+        }</span>
+}
+
+// LoadConfig loads configuration from the specified sources
+func (m *ConfigManager) LoadConfig(ctx context.Context, options LoadOptions) (*Config, error) <span class="cov8" title="1">{
+        // Set default validation if not specified
+        if !options.ValidateConfig </span><span class="cov8" title="1">{
+                options.ValidateConfig = m.options.ValidateOnLoad
+        }</span>
+
+        // Load configuration using the loader
+        <span class="cov8" title="1">config, sources, err := m.loader.LoadWithPriority(ctx, options)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("failed to load configuration: %w", err)
+        }</span>
+
+        // Apply environment-specific overrides if manager has a default environment
+        <span class="cov8" title="1">if config.Environment == "" &amp;&amp; m.options.Environment != "" </span><span class="cov0" title="0">{
+                config.Environment = m.options.Environment
+        }</span>
+
+        // Store the load options for future reloads
+        <span class="cov8" title="1">m.mutex.Lock()
+        oldConfig := m.currentConfig
+        m.currentConfig = config
+        m.currentSources = sources
+        m.loadedAt = time.Now()
+        m.loadOptions = &amp;options
+        m.featureFlagManager = NewFeatureFlagManager(config.Features)
+        m.mutex.Unlock()
+
+        // Notify callbacks of config change
+        if oldConfig != nil </span><span class="cov8" title="1">{
+                m.notifyCallbacks(oldConfig, config)
+        }</span>
+
+        <span class="cov8" title="1">return config, nil</span>
+}
+
+// ReloadConfig reloads the configuration using the same options as the last load
+func (m *ConfigManager) ReloadConfig(ctx context.Context) (*Config, error) <span class="cov8" title="1">{
+        m.mutex.RLock()
+        loadOptions := m.loadOptions
+        m.mutex.RUnlock()
+
+        if loadOptions == nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("no load options available for reload - LoadConfig must be called first")
+        }</span>
+
+        <span class="cov8" title="1">return m.LoadConfig(ctx, *loadOptions)</span>
+}
+
+// GetConfig returns the current configuration (thread-safe)
+func (m *ConfigManager) GetConfig() *Config <span class="cov8" title="1">{
+        m.mutex.RLock()
+        defer m.mutex.RUnlock()
+
+        if m.currentConfig == nil </span><span class="cov8" title="1">{
+                return nil
+        }</span>
+
+        <span class="cov8" title="1">return m.currentConfig.Copy()</span>
+}
+
+// GetFeatureFlagManager returns the feature flag manager for the current configuration
+func (m *ConfigManager) GetFeatureFlagManager() *FeatureFlagManager <span class="cov8" title="1">{
+        m.mutex.RLock()
+        defer m.mutex.RUnlock()
+
+        if m.featureFlagManager == nil </span><span class="cov8" title="1">{
+                return nil
+        }</span>
+
+        <span class="cov8" title="1">return m.featureFlagManager.Clone()</span>
+}
+
+// RegisterConfigChangeCallback registers a callback to be called when configuration changes
+func (m *ConfigManager) RegisterConfigChangeCallback(callback ConfigChangeCallback) <span class="cov8" title="1">{
+        m.mutex.Lock()
+        defer m.mutex.Unlock()
+
+        m.callbacks = append(m.callbacks, callback)
+}</span>
+
+// StartAutoReload starts automatic configuration reloading (if enabled)
+func (m *ConfigManager) StartAutoReload(ctx context.Context) error <span class="cov8" title="1">{
+        if !m.options.AutoReload </span><span class="cov8" title="1">{
+                return fmt.Errorf("auto-reload is not enabled")
+        }</span>
+
+        <span class="cov8" title="1">m.mutex.Lock()
+        if m.reloadCancel != nil </span><span class="cov0" title="0">{
+                m.reloadCancel() // Cancel any existing reload
+        }</span>
+
+        <span class="cov8" title="1">reloadCtx, cancel := context.WithCancel(ctx)
+        m.reloadCancel = cancel
+        m.mutex.Unlock()
+
+        go m.autoReloadLoop(reloadCtx)
+
+        return nil</span>
+}
+
+// StopAutoReload stops automatic configuration reloading
+func (m *ConfigManager) StopAutoReload() <span class="cov8" title="1">{
+        m.mutex.Lock()
+        defer m.mutex.Unlock()
+
+        if m.reloadCancel != nil </span><span class="cov0" title="0">{
+                m.reloadCancel()
+                m.reloadCancel = nil
+        }</span>
+}
+
+// IsConfigured returns true if configuration has been loaded
+func (m *ConfigManager) IsConfigured() bool <span class="cov8" title="1">{
+        m.mutex.RLock()
+        defer m.mutex.RUnlock()
+
+        return m.currentConfig != nil
+}</span>
+
+// GetConfigSources returns a copy of the configuration sources map
+func (m *ConfigManager) GetConfigSources() map[string]ConfigSource <span class="cov8" title="1">{
+        m.mutex.RLock()
+        defer m.mutex.RUnlock()
+
+        if m.currentSources == nil </span><span class="cov8" title="1">{
+                return make(map[string]ConfigSource)
+        }</span>
+
+        <span class="cov8" title="1">result := make(map[string]ConfigSource)
+        for k, v := range m.currentSources </span><span class="cov8" title="1">{
+                result[k] = v
+        }</span>
+
+        <span class="cov8" title="1">return result</span>
+}
+
+// GetLoadedAt returns the time when the configuration was last loaded
+func (m *ConfigManager) GetLoadedAt() time.Time <span class="cov8" title="1">{
+        m.mutex.RLock()
+        defer m.mutex.RUnlock()
+
+        return m.loadedAt
+}</span>
+
+// ValidateConfiguration validates the current configuration
+func (m *ConfigManager) ValidateConfiguration() error <span class="cov8" title="1">{
+        m.mutex.RLock()
+        config := m.currentConfig
+        m.mutex.RUnlock()
+
+        if config == nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("no configuration loaded")
+        }</span>
+
+        <span class="cov8" title="1">return config.Validate()</span>
+}
+
+// GetNamespace returns the namespace used by this manager
+func (m *ConfigManager) GetNamespace() string <span class="cov8" title="1">{
+        return m.namespace
+}</span>
+
+// GetOptions returns a copy of the manager options
+func (m *ConfigManager) GetOptions() ManagerOptions <span class="cov8" title="1">{
+        return *m.options
+}</span>
+
+// autoReloadLoop runs the automatic reload loop
+func (m *ConfigManager) autoReloadLoop(ctx context.Context) <span class="cov8" title="1">{
+        ticker := time.NewTicker(m.options.ReloadInterval)
+        defer ticker.Stop()
+
+        for </span><span class="cov8" title="1">{
+                select </span>{
+                case &lt;-ticker.C:<span class="cov0" title="0">
+                        // Attempt to reload configuration
+                        _, err := m.ReloadConfig(ctx)
+                        if err != nil </span><span class="cov0" title="0">{
+                                // In a real implementation, we might want to log this error
+                                // For now, we'll continue trying
+                                continue</span>
+                        }
+
+                case &lt;-ctx.Done():<span class="cov8" title="1">
+                        return</span>
+                }
+        }
+}
+
+// notifyCallbacks notifies all registered callbacks of a configuration change
+func (m *ConfigManager) notifyCallbacks(oldConfig, newConfig *Config) <span class="cov8" title="1">{
+        // Make copies to avoid race conditions
+        oldCopy := oldConfig.Copy()
+        newCopy := newConfig.Copy()
+
+        // Call callbacks in separate goroutines to avoid blocking
+        for _, callback := range m.callbacks </span><span class="cov8" title="1">{
+                go func(cb ConfigChangeCallback) </span><span class="cov8" title="1">{
+                        defer func() </span><span class="cov8" title="1">{
+                                if r := recover(); r != nil </span>{<span class="cov0" title="0">
+                                        // Handle panics in callbacks gracefully
+                                        // In a real implementation, we might want to log this
+                                }</span>
+                        }()
+                        <span class="cov8" title="1">cb(oldCopy, newCopy)</span>
+                }(callback)
+        }
+}
+
+// updateConfig updates the current configuration (internal method)
+func (m *ConfigManager) updateConfig(newConfig *Config) <span class="cov8" title="1">{
+        m.mutex.Lock()
+        oldConfig := m.currentConfig
+        m.currentConfig = newConfig
+        m.loadedAt = time.Now()
+        if newConfig != nil &amp;&amp; newConfig.Features != nil </span><span class="cov8" title="1">{
+                m.featureFlagManager = NewFeatureFlagManager(newConfig.Features)
+        }</span>
+        <span class="cov8" title="1">m.mutex.Unlock()
+
+        if oldConfig != nil </span><span class="cov8" title="1">{
+                m.notifyCallbacks(oldConfig, newConfig)
+        }</span>
+}
+
+// Validate validates the manager options
+func (opts *ManagerOptions) Validate() error <span class="cov8" title="1">{
+        if opts.Environment != "" </span><span class="cov8" title="1">{
+                if err := ValidateEnvironment(opts.Environment); err != nil </span><span class="cov8" title="1">{
+                        return fmt.Errorf("invalid environment in options: %w", err)
+                }</span>
+        }
+
+        <span class="cov8" title="1">if opts.AutoReload &amp;&amp; opts.ReloadInterval &lt; 1*time.Second </span><span class="cov8" title="1">{
+                return fmt.Errorf("reload interval must be at least 1 second when auto-reload is enabled, got: %v", opts.ReloadInterval)
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// String returns a string representation of the manager options
+func (opts *ManagerOptions) String() string <span class="cov8" title="1">{
+        return fmt.Sprintf("ManagerOptions{Environment: %s, AutoReload: %v, ReloadInterval: %v, ValidateOnLoad: %v}",
+                opts.Environment, opts.AutoReload, opts.ReloadInterval, opts.ValidateOnLoad)
+}</span>
+
+// String returns a string representation of the configuration manager
+func (m *ConfigManager) String() string <span class="cov0" title="0">{
+        m.mutex.RLock()
+        defer m.mutex.RUnlock()
+
+        status := "not configured"
+        if m.currentConfig != nil </span><span class="cov0" title="0">{
+                status = fmt.Sprintf("configured (loaded at %s)", m.loadedAt.Format(time.RFC3339))
+        }</span>
+
+        <span class="cov0" title="0">autoReload := "disabled"
+        if m.options.AutoReload </span><span class="cov0" title="0">{
+                autoReload = fmt.Sprintf("enabled (interval: %v)", m.options.ReloadInterval)
+        }</span>
+
+        <span class="cov0" title="0">return fmt.Sprintf("ConfigManager{namespace: %s, status: %s, auto-reload: %s, callbacks: %d}",
+                m.namespace, status, autoReload, len(m.callbacks))</span>
+}
+
+// Close gracefully shuts down the configuration manager
+func (m *ConfigManager) Close() error <span class="cov8" title="1">{
+        m.StopAutoReload()
+
+        m.mutex.Lock()
+        defer m.mutex.Unlock()
+
+        // Clear callbacks
+        m.callbacks = nil
+
+        // Clear current state
+        m.currentConfig = nil
+        m.currentSources = nil
+        m.featureFlagManager = nil
+        m.loadOptions = nil
+
+        return nil
+}</span>
+</pre>
+
+		<pre class="file" id="file3" style="display: none">package config
+
+import (
+        "encoding/json"
+        "fmt"
+        "time"
+)
+
+// ConfigSource represents the source of configuration
+type ConfigSource int
+
+const (
+        // ConfigSourceDefault indicates default configuration
+        ConfigSourceDefault ConfigSource = iota
+        // ConfigSourceEnv indicates configuration from environment variables
+        ConfigSourceEnv
+        // ConfigSourceFile indicates configuration from file
+        ConfigSourceFile
+        // ConfigSourceConfigMap indicates configuration from ConfigMap
+        ConfigSourceConfigMap
+        // ConfigSourceSecret indicates configuration from Secret
+        ConfigSourceSecret
+)
+
+// String returns the string representation of ConfigSource
+func (cs ConfigSource) String() string <span class="cov8" title="1">{
+        switch cs </span>{
+        case ConfigSourceDefault:<span class="cov8" title="1">
+                return "default"</span>
+        case ConfigSourceEnv:<span class="cov8" title="1">
+                return "env"</span>
+        case ConfigSourceFile:<span class="cov8" title="1">
+                return "file"</span>
+        case ConfigSourceConfigMap:<span class="cov8" title="1">
+                return "configmap"</span>
+        case ConfigSourceSecret:<span class="cov8" title="1">
+                return "secret"</span>
+        default:<span class="cov8" title="1">
+                return "unknown"</span>
+        }
+}
+
+// Config represents the complete operator configuration
+type Config struct {
+        // Environment specifies the deployment environment (production, staging, development)
+        Environment string `json:"environment" yaml:"environment"`
+
+        // Operator contains operator-specific configuration
+        Operator OperatorConfig `json:"operator" yaml:"operator"`
+
+        // Cloudflare contains Cloudflare API configuration
+        Cloudflare CloudflareConfig `json:"cloudflare" yaml:"cloudflare"`
+
+        // Features contains feature flags
+        Features *FeatureFlags `json:"features,omitempty" yaml:"features,omitempty"`
+
+        // Performance contains performance tuning configuration
+        Performance PerformanceConfig `json:"performance" yaml:"performance"`
+
+        // ConfigSources tracks where each configuration value came from
+        ConfigSources map[string]ConfigSource `json:"-" yaml:"-"`
+}
+
+// OperatorConfig contains operator-specific settings
+type OperatorConfig struct {
+        // LogLevel specifies the logging level (debug, info, warn, error)
+        LogLevel string `json:"logLevel" yaml:"logLevel"`
+
+        // ReconcileInterval specifies how often to reconcile resources
+        ReconcileInterval time.Duration `json:"reconcileInterval" yaml:"reconcileInterval"`
+
+        // MetricsBindAddress is the address the metric endpoint binds to
+        MetricsBindAddress string `json:"metricsBindAddress,omitempty" yaml:"metricsBindAddress,omitempty"`
+
+        // HealthProbeBindAddress is the address the health probe endpoint binds to
+        HealthProbeBindAddress string `json:"healthProbeBindAddress,omitempty" yaml:"healthProbeBindAddress,omitempty"`
+
+        // LeaderElection enables leader election for controller manager
+        LeaderElection bool `json:"leaderElection" yaml:"leaderElection"`
+}
+
+// CloudflareConfig contains Cloudflare API settings
+type CloudflareConfig struct {
+        // APITimeout specifies the timeout for Cloudflare API calls
+        APITimeout time.Duration `json:"apiTimeout" yaml:"apiTimeout"`
+
+        // RateLimitRPS specifies the rate limit in requests per second
+        RateLimitRPS int `json:"rateLimitRPS" yaml:"rateLimitRPS"`
+
+        // RetryAttempts specifies the number of retry attempts for failed API calls
+        RetryAttempts int `json:"retryAttempts,omitempty" yaml:"retryAttempts,omitempty"`
+
+        // RetryDelay specifies the delay between retry attempts
+        RetryDelay time.Duration `json:"retryDelay,omitempty" yaml:"retryDelay,omitempty"`
+}
+
+// FeatureFlags contains feature toggle configuration
+type FeatureFlags struct {
+        // EnableWebhooks enables admission webhooks
+        EnableWebhooks bool `json:"enableWebhooks" yaml:"enableWebhooks"`
+
+        // EnableMetrics enables Prometheus metrics
+        EnableMetrics bool `json:"enableMetrics" yaml:"enableMetrics"`
+
+        // EnableTracing enables distributed tracing
+        EnableTracing bool `json:"enableTracing" yaml:"enableTracing"`
+
+        // ExperimentalFeatures enables experimental features
+        ExperimentalFeatures bool `json:"experimentalFeatures" yaml:"experimentalFeatures"`
+
+        // CustomFlags allows for additional feature flags
+        CustomFlags map[string]bool `json:"customFlags,omitempty" yaml:"customFlags,omitempty"`
+}
+
+// PerformanceConfig contains performance tuning settings
+type PerformanceConfig struct {
+        // MaxConcurrentReconciles is the maximum number of concurrent reconciles
+        MaxConcurrentReconciles int `json:"maxConcurrentReconciles" yaml:"maxConcurrentReconciles"`
+
+        // ReconcileTimeout is the timeout for individual reconcile operations
+        ReconcileTimeout time.Duration `json:"reconcileTimeout" yaml:"reconcileTimeout"`
+
+        // RequeueInterval is the interval for requeueing successful reconciles
+        RequeueInterval time.Duration `json:"requeueInterval" yaml:"requeueInterval"`
+
+        // RequeueIntervalOnError is the interval for requeueing failed reconciles
+        RequeueIntervalOnError time.Duration `json:"requeueIntervalOnError" yaml:"requeueIntervalOnError"`
+
+        // ResyncPeriod is the resync period for informers
+        ResyncPeriod time.Duration `json:"resyncPeriod" yaml:"resyncPeriod"`
+
+        // LeaderElectionLeaseDuration is the duration that non-leader candidates will wait to force acquire leadership
+        LeaderElectionLeaseDuration time.Duration `json:"leaderElectionLeaseDuration" yaml:"leaderElectionLeaseDuration"`
+
+        // LeaderElectionRenewDeadline is the duration that the acting leader will retry refreshing leadership
+        LeaderElectionRenewDeadline time.Duration `json:"leaderElectionRenewDeadline,omitempty" yaml:"leaderElectionRenewDeadline,omitempty"`
+
+        // LeaderElectionRetryPeriod is the duration the LeaderElector clients should wait between tries
+        LeaderElectionRetryPeriod time.Duration `json:"leaderElectionRetryPeriod,omitempty" yaml:"leaderElectionRetryPeriod,omitempty"`
+}
+
+// NewConfig creates a new configuration with default values
+func NewConfig() *Config <span class="cov8" title="1">{
+        return &amp;Config{
+                Environment: "production",
+                Operator: OperatorConfig{
+                        LogLevel:               "info",
+                        ReconcileInterval:      5 * time.Minute,
+                        MetricsBindAddress:     ":8080",
+                        HealthProbeBindAddress: ":8081",
+                        LeaderElection:         true,
+                },
+                Cloudflare: CloudflareConfig{
+                        APITimeout:    30 * time.Second,
+                        RateLimitRPS:  10,
+                        RetryAttempts: 3,
+                        RetryDelay:    1 * time.Second,
+                },
+                Features: &amp;FeatureFlags{
+                        EnableWebhooks:       true,
+                        EnableMetrics:        true,
+                        EnableTracing:        false,
+                        ExperimentalFeatures: false,
+                        CustomFlags:          make(map[string]bool),
+                },
+                Performance: PerformanceConfig{
+                        MaxConcurrentReconciles:     5,
+                        ReconcileTimeout:            5 * time.Minute,
+                        RequeueInterval:             5 * time.Minute,
+                        RequeueIntervalOnError:      1 * time.Minute,
+                        ResyncPeriod:                10 * time.Minute,
+                        LeaderElectionLeaseDuration: 15 * time.Second,
+                        LeaderElectionRenewDeadline: 10 * time.Second,
+                        LeaderElectionRetryPeriod:   2 * time.Second,
+                },
+                ConfigSources: make(map[string]ConfigSource),
+        }
+}</span>
+
+// GetEnvironmentDefaults returns default configuration for a specific environment
+func GetEnvironmentDefaults(env string) *Config <span class="cov8" title="1">{
+        base := NewConfig()
+        base.Environment = env
+
+        switch env </span>{
+        case "production":<span class="cov8" title="1">
+                // Production defaults are already set in NewConfig()
+                return base</span>
+
+        case "staging":<span class="cov8" title="1">
+                base.Operator.LogLevel = "debug"
+                base.Operator.ReconcileInterval = 1 * time.Minute
+                base.Cloudflare.APITimeout = 15 * time.Second
+                base.Cloudflare.RateLimitRPS = 5
+                return base</span>
+
+        case "development":<span class="cov8" title="1">
+                base.Operator.LogLevel = "debug"
+                base.Operator.ReconcileInterval = 30 * time.Second
+                base.Cloudflare.APITimeout = 10 * time.Second
+                base.Cloudflare.RateLimitRPS = 2
+                base.Features.ExperimentalFeatures = true
+                return base</span>
+
+        default:<span class="cov8" title="1">
+                return base</span>
+        }
+}
+
+// Merge merges another config into this one, with the other config taking precedence
+func (c *Config) Merge(other *Config) *Config <span class="cov8" title="1">{
+        if other == nil </span><span class="cov8" title="1">{
+                return c.Copy()
+        }</span>
+
+        <span class="cov8" title="1">result := c.Copy()
+
+        // Merge basic fields
+        if other.Environment != "" </span><span class="cov8" title="1">{
+                result.Environment = other.Environment
+        }</span>
+
+        // Merge operator config
+        <span class="cov8" title="1">if other.Operator.LogLevel != "" </span><span class="cov8" title="1">{
+                result.Operator.LogLevel = other.Operator.LogLevel
+        }</span>
+        <span class="cov8" title="1">if other.Operator.ReconcileInterval != 0 </span><span class="cov8" title="1">{
+                result.Operator.ReconcileInterval = other.Operator.ReconcileInterval
+        }</span>
+        <span class="cov8" title="1">if other.Operator.MetricsBindAddress != "" </span><span class="cov0" title="0">{
+                result.Operator.MetricsBindAddress = other.Operator.MetricsBindAddress
+        }</span>
+        <span class="cov8" title="1">if other.Operator.HealthProbeBindAddress != "" </span><span class="cov0" title="0">{
+                result.Operator.HealthProbeBindAddress = other.Operator.HealthProbeBindAddress
+        }</span>
+
+        // Merge cloudflare config
+        <span class="cov8" title="1">if other.Cloudflare.APITimeout != 0 </span><span class="cov8" title="1">{
+                result.Cloudflare.APITimeout = other.Cloudflare.APITimeout
+        }</span>
+        <span class="cov8" title="1">if other.Cloudflare.RateLimitRPS != 0 </span><span class="cov8" title="1">{
+                result.Cloudflare.RateLimitRPS = other.Cloudflare.RateLimitRPS
+        }</span>
+        <span class="cov8" title="1">if other.Cloudflare.RetryAttempts != 0 </span><span class="cov0" title="0">{
+                result.Cloudflare.RetryAttempts = other.Cloudflare.RetryAttempts
+        }</span>
+        <span class="cov8" title="1">if other.Cloudflare.RetryDelay != 0 </span><span class="cov0" title="0">{
+                result.Cloudflare.RetryDelay = other.Cloudflare.RetryDelay
+        }</span>
+
+        // Merge feature flags
+        <span class="cov8" title="1">if other.Features != nil </span><span class="cov8" title="1">{
+                if result.Features == nil </span><span class="cov8" title="1">{
+                        result.Features = &amp;FeatureFlags{
+                                CustomFlags: make(map[string]bool),
+                        }
+                }</span>
+                <span class="cov8" title="1">if other.Features.EnableWebhooks </span><span class="cov8" title="1">{
+                        result.Features.EnableWebhooks = true
+                }</span>
+                <span class="cov8" title="1">if other.Features.EnableMetrics </span><span class="cov8" title="1">{
+                        result.Features.EnableMetrics = true
+                }</span>
+                <span class="cov8" title="1">if other.Features.EnableTracing </span><span class="cov8" title="1">{
+                        result.Features.EnableTracing = true
+                }</span>
+                <span class="cov8" title="1">if other.Features.ExperimentalFeatures </span><span class="cov8" title="1">{
+                        result.Features.ExperimentalFeatures = true
+                }</span>
+                // Merge custom flags
+                <span class="cov8" title="1">for k, v := range other.Features.CustomFlags </span><span class="cov8" title="1">{
+                        result.Features.CustomFlags[k] = v
+                }</span>
+        }
+
+        // Merge performance config
+        <span class="cov8" title="1">if other.Performance.MaxConcurrentReconciles != 0 </span><span class="cov0" title="0">{
+                result.Performance.MaxConcurrentReconciles = other.Performance.MaxConcurrentReconciles
+        }</span>
+        <span class="cov8" title="1">if other.Performance.ReconcileTimeout != 0 </span><span class="cov8" title="1">{
+                result.Performance.ReconcileTimeout = other.Performance.ReconcileTimeout
+        }</span>
+        <span class="cov8" title="1">if other.Performance.RequeueInterval != 0 </span><span class="cov8" title="1">{
+                result.Performance.RequeueInterval = other.Performance.RequeueInterval
+        }</span>
+        <span class="cov8" title="1">if other.Performance.RequeueIntervalOnError != 0 </span><span class="cov8" title="1">{
+                result.Performance.RequeueIntervalOnError = other.Performance.RequeueIntervalOnError
+        }</span>
+        <span class="cov8" title="1">if other.Performance.ResyncPeriod != 0 </span><span class="cov0" title="0">{
+                result.Performance.ResyncPeriod = other.Performance.ResyncPeriod
+        }</span>
+        <span class="cov8" title="1">if other.Performance.LeaderElectionLeaseDuration != 0 </span><span class="cov0" title="0">{
+                result.Performance.LeaderElectionLeaseDuration = other.Performance.LeaderElectionLeaseDuration
+        }</span>
+        <span class="cov8" title="1">if other.Performance.LeaderElectionRenewDeadline != 0 </span><span class="cov8" title="1">{
+                result.Performance.LeaderElectionRenewDeadline = other.Performance.LeaderElectionRenewDeadline
+        }</span>
+        <span class="cov8" title="1">if other.Performance.LeaderElectionRetryPeriod != 0 </span><span class="cov8" title="1">{
+                result.Performance.LeaderElectionRetryPeriod = other.Performance.LeaderElectionRetryPeriod
+        }</span>
+
+        <span class="cov8" title="1">return result</span>
+}
+
+// Copy creates a deep copy of the configuration
+func (c *Config) Copy() *Config <span class="cov8" title="1">{
+        if c == nil </span><span class="cov8" title="1">{
+                return nil
+        }</span>
+
+        <span class="cov8" title="1">result := &amp;Config{
+                Environment:   c.Environment,
+                Operator:      c.Operator,
+                Cloudflare:    c.Cloudflare,
+                Performance:   c.Performance,
+                ConfigSources: make(map[string]ConfigSource),
+        }
+
+        // Deep copy feature flags
+        if c.Features != nil </span><span class="cov8" title="1">{
+                result.Features = &amp;FeatureFlags{
+                        EnableWebhooks:       c.Features.EnableWebhooks,
+                        EnableMetrics:        c.Features.EnableMetrics,
+                        EnableTracing:        c.Features.EnableTracing,
+                        ExperimentalFeatures: c.Features.ExperimentalFeatures,
+                        CustomFlags:          make(map[string]bool),
+                }
+                for k, v := range c.Features.CustomFlags </span><span class="cov8" title="1">{
+                        result.Features.CustomFlags[k] = v
+                }</span>
+        }
+
+        // Copy config sources
+        <span class="cov8" title="1">for k, v := range c.ConfigSources </span><span class="cov8" title="1">{
+                result.ConfigSources[k] = v
+        }</span>
+
+        <span class="cov8" title="1">return result</span>
+}
+
+// ToJSON converts the configuration to JSON
+func (c *Config) ToJSON() ([]byte, error) <span class="cov8" title="1">{
+        return json.MarshalIndent(c, "", "  ")
+}</span>
+
+// FromJSON loads configuration from JSON
+func (c *Config) FromJSON(data []byte) error <span class="cov8" title="1">{
+        return json.Unmarshal(data, c)
+}</span>
+
+// IsValid validates the operator configuration
+func (oc *OperatorConfig) IsValid() error <span class="cov8" title="1">{
+        if err := ValidateLogLevel(oc.LogLevel); err != nil </span><span class="cov8" title="1">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if err := ValidateDuration(oc.ReconcileInterval, 1*time.Second, 1*time.Hour, "reconcile interval"); err != nil </span><span class="cov8" title="1">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// IsValid validates the cloudflare configuration
+func (cc *CloudflareConfig) IsValid() error <span class="cov8" title="1">{
+        if err := ValidateDuration(cc.APITimeout, 1*time.Second, 5*time.Minute, "API timeout"); err != nil </span><span class="cov8" title="1">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if err := ValidatePositiveInt(cc.RateLimitRPS, "rate limit RPS"); err != nil </span><span class="cov8" title="1">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if cc.RetryAttempts &lt; 0 </span><span class="cov0" title="0">{
+                return fmt.Errorf("retry attempts cannot be negative, got: %d", cc.RetryAttempts)
+        }</span>
+
+        <span class="cov8" title="1">if cc.RetryDelay &gt; 0 </span><span class="cov8" title="1">{
+                if err := ValidateDuration(cc.RetryDelay, 100*time.Millisecond, 30*time.Second, "retry delay"); err != nil </span><span class="cov8" title="1">{
+                        return err
+                }</span>
+        }
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// IsValid validates the performance configuration
+func (pc *PerformanceConfig) IsValid() error <span class="cov8" title="1">{
+        if err := ValidatePositiveInt(pc.MaxConcurrentReconciles, "max concurrent reconciles"); err != nil </span><span class="cov8" title="1">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if err := ValidateDuration(pc.ReconcileTimeout, 1*time.Second, 30*time.Minute, "reconcile timeout"); err != nil </span><span class="cov8" title="1">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if err := ValidateDuration(pc.RequeueInterval, 1*time.Second, 24*time.Hour, "requeue interval"); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if err := ValidateDuration(pc.RequeueIntervalOnError, 1*time.Second, 1*time.Hour, "requeue interval on error"); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if err := ValidateDuration(pc.ResyncPeriod, 1*time.Minute, 24*time.Hour, "resync period"); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if err := ValidateDuration(pc.LeaderElectionLeaseDuration, 1*time.Second, 5*time.Minute, "leader election lease duration"); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if pc.LeaderElectionRenewDeadline &gt; 0 </span><span class="cov8" title="1">{
+                if err := ValidateDuration(pc.LeaderElectionRenewDeadline, 1*time.Second, 1*time.Minute, "leader election renew deadline"); err != nil </span><span class="cov8" title="1">{
+                        return err
+                }</span>
+        }
+
+        <span class="cov8" title="1">if pc.LeaderElectionRetryPeriod &gt; 0 </span><span class="cov8" title="1">{
+                if err := ValidateDuration(pc.LeaderElectionRetryPeriod, 100*time.Millisecond, 30*time.Second, "leader election retry period"); err != nil </span><span class="cov8" title="1">{
+                        return err
+                }</span>
+        }
+
+        <span class="cov8" title="1">return nil</span>
+}
+</pre>
+
+		<pre class="file" id="file4" style="display: none">package config
+
+import (
+        "fmt"
+        "net"
+        "strings"
+        "time"
+)
+
+// Validate validates the entire configuration
+func (c *Config) Validate() error <span class="cov8" title="1">{
+        if c == nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("config cannot be nil")
+        }</span>
+
+        // Validate environment
+        <span class="cov8" title="1">if err := ValidateEnvironment(c.Environment); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("environment validation failed: %w", err)
+        }</span>
+
+        // Validate operator configuration
+        <span class="cov8" title="1">if err := c.Operator.IsValid(); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("operator configuration validation failed: %w", err)
+        }</span>
+
+        // Validate bind addresses
+        <span class="cov8" title="1">if c.Operator.MetricsBindAddress != "" </span><span class="cov8" title="1">{
+                if err := ValidateBindAddress(c.Operator.MetricsBindAddress); err != nil </span><span class="cov8" title="1">{
+                        return fmt.Errorf("invalid metrics bind address: %w", err)
+                }</span>
+        }
+
+        <span class="cov8" title="1">if c.Operator.HealthProbeBindAddress != "" </span><span class="cov8" title="1">{
+                if err := ValidateBindAddress(c.Operator.HealthProbeBindAddress); err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("invalid health probe bind address: %w", err)
+                }</span>
+        }
+
+        // Validate cloudflare configuration
+        <span class="cov8" title="1">if err := c.Cloudflare.IsValid(); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("cloudflare configuration validation failed: %w", err)
+        }</span>
+
+        // Validate performance configuration
+        <span class="cov8" title="1">if err := c.Performance.IsValid(); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("performance configuration validation failed: %w", err)
+        }</span>
+
+        // Validate feature flags
+        <span class="cov8" title="1">if err := c.Features.Validate(); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("feature flags validation failed: %w", err)
+        }</span>
+
+        // Environment-specific validation
+        <span class="cov8" title="1">if err := c.validateEnvironmentSpecific(); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("environment-specific validation failed: %w", err)
+        }</span>
+
+        // Cross-field validation
+        <span class="cov8" title="1">if err := c.validateCrossFields(); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("cross-field validation failed: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// ValidateEnvironment validates the environment string
+func ValidateEnvironment(env string) error <span class="cov8" title="1">{
+        if env == "" </span><span class="cov8" title="1">{
+                return fmt.Errorf("environment cannot be empty")
+        }</span>
+
+        <span class="cov8" title="1">validEnvironments := map[string]bool{
+                "production":  true,
+                "staging":     true,
+                "development": true,
+                "test":        true,
+        }
+
+        if !validEnvironments[env] </span><span class="cov8" title="1">{
+                return fmt.Errorf("invalid environment: %s, must be one of: production, staging, development, test", env)
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// ValidateLogLevel validates the log level string
+func ValidateLogLevel(level string) error <span class="cov8" title="1">{
+        if level == "" </span><span class="cov8" title="1">{
+                return fmt.Errorf("log level cannot be empty")
+        }</span>
+
+        <span class="cov8" title="1">validLevels := map[string]bool{
+                "trace": true,
+                "debug": true,
+                "info":  true,
+                "warn":  true,
+                "error": true,
+                "fatal": true,
+                "panic": true,
+        }
+
+        if !validLevels[level] </span><span class="cov8" title="1">{
+                return fmt.Errorf("invalid log level: %s, must be one of: trace, debug, info, warn, error, fatal, panic", level)
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// ValidateDuration validates a duration against min/max bounds
+func ValidateDuration(duration, min, max time.Duration, fieldName string) error <span class="cov8" title="1">{
+        if duration &lt;= 0 </span><span class="cov8" title="1">{
+                return fmt.Errorf("%s must be positive, got: %v", fieldName, duration)
+        }</span>
+
+        <span class="cov8" title="1">if duration &lt; min </span><span class="cov8" title="1">{
+                return fmt.Errorf("%s must be at least %v, got: %v", fieldName, min, duration)
+        }</span>
+
+        <span class="cov8" title="1">if max &gt; 0 &amp;&amp; duration &gt; max </span><span class="cov8" title="1">{
+                return fmt.Errorf("%s must be at most %v, got: %v", fieldName, max, duration)
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// ValidatePositiveInt validates that an integer is positive
+func ValidatePositiveInt(value int, fieldName string) error <span class="cov8" title="1">{
+        if value &lt;= 0 </span><span class="cov8" title="1">{
+                return fmt.Errorf("%s must be positive, got: %d", fieldName, value)
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+
+// ValidatePortRange validates that a port is in valid range (1-65535)
+func ValidatePortRange(port int) error <span class="cov8" title="1">{
+        if port &lt; 1 || port &gt; 65535 </span><span class="cov8" title="1">{
+                return fmt.Errorf("port must be between 1 and 65535, got: %d", port)
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+
+// ValidateBindAddress validates bind address format
+func ValidateBindAddress(address string) error <span class="cov8" title="1">{
+        if address == "" </span><span class="cov8" title="1">{
+                return fmt.Errorf("bind address cannot be empty")
+        }</span>
+
+        // Handle special case of just ":port"
+        <span class="cov8" title="1">if strings.HasPrefix(address, ":") </span><span class="cov8" title="1">{
+                portStr := address[1:]
+                if portStr == "" </span><span class="cov8" title="1">{
+                        return fmt.Errorf("bind address cannot be just ':'")
+                }</span>
+                <span class="cov8" title="1">if portStr == "0" </span><span class="cov8" title="1">{
+                        // ":0" is valid (let OS choose port)
+                        return nil
+                }</span>
+        }
+
+        // Try to parse as host:port
+        <span class="cov8" title="1">host, port, err := net.SplitHostPort(address)
+        if err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("invalid bind address format: %s", address)
+        }</span>
+
+        // Validate host (can be empty for ":port" format)
+        <span class="cov8" title="1">if host != "" </span><span class="cov8" title="1">{
+                // Check if it's a valid IP address
+                if ip := net.ParseIP(host); ip == nil </span><span class="cov8" title="1">{
+                        // If not an IP, could be hostname - basic validation
+                        if strings.Contains(host, " ") || strings.Contains(host, "\t") </span><span class="cov8" title="1">{
+                                return fmt.Errorf("invalid host in bind address: %s", host)
+                        }</span>
+                }
+        }
+
+        // Validate port
+        <span class="cov8" title="1">if port != "0" </span><span class="cov8" title="1">{ // "0" means let OS choose port
+                if _, err := net.LookupPort("tcp", port); err != nil </span><span class="cov8" title="1">{
+                        return fmt.Errorf("invalid port in bind address: %s", port)
+                }</span>
+        }
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// Validate validates feature flags
+func (ff *FeatureFlags) Validate() error <span class="cov8" title="1">{
+        if ff == nil </span><span class="cov8" title="1">{
+                return nil // nil feature flags are allowed
+        }</span>
+
+        // Currently no complex validation needed for feature flags
+        // This method is here for future extensibility
+        <span class="cov8" title="1">return nil</span>
+}
+
+// validateEnvironmentSpecific performs environment-specific validation
+func (c *Config) validateEnvironmentSpecific() error <span class="cov8" title="1">{
+        switch c.Environment </span>{
+        case "production":<span class="cov8" title="1">
+                // Production-specific validations
+                if c.Operator.ReconcileInterval &lt; 30*time.Second </span><span class="cov8" title="1">{
+                        return fmt.Errorf("production environment requires reconcile interval of at least 30s, got: %v", c.Operator.ReconcileInterval)
+                }</span>
+
+                <span class="cov8" title="1">if c.Cloudflare.RateLimitRPS &gt; 50 </span><span class="cov8" title="1">{
+                        return fmt.Errorf("production environment should have rate limit &lt;= 50 RPS for safety, got: %d", c.Cloudflare.RateLimitRPS)
+                }</span>
+
+                // Ensure stable features are enabled in production
+                <span class="cov8" title="1">if c.Features != nil &amp;&amp; c.Features.ExperimentalFeatures </span><span class="cov8" title="1">{
+                        return fmt.Errorf("experimental features should not be enabled in production")
+                }</span>
+
+        case "staging":<span class="cov8" title="1">
+                // Staging-specific validations
+                if c.Operator.ReconcileInterval &lt; 10*time.Second </span><span class="cov8" title="1">{
+                        return fmt.Errorf("staging environment requires reconcile interval of at least 10s, got: %v", c.Operator.ReconcileInterval)
+                }</span>
+
+        case "development":<span class="cov8" title="1">
+                // Development-specific validations are more relaxed
+                if c.Operator.ReconcileInterval &lt; 5*time.Second </span><span class="cov8" title="1">{
+                        return fmt.Errorf("development environment requires reconcile interval of at least 5s, got: %v", c.Operator.ReconcileInterval)
+                }</span>
+
+        case "test":<span class="cov8" title="1"></span>
+                // Test environment is most permissive
+                // No additional validations
+        }
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// validateCrossFields performs cross-field validation
+func (c *Config) validateCrossFields() error <span class="cov8" title="1">{
+        // Validate leader election timing relationships
+        if c.Performance.LeaderElectionRenewDeadline &gt; 0 &amp;&amp;
+                c.Performance.LeaderElectionLeaseDuration &gt; 0 &amp;&amp;
+                c.Performance.LeaderElectionRenewDeadline &gt;= c.Performance.LeaderElectionLeaseDuration </span><span class="cov8" title="1">{
+                return fmt.Errorf("leader election renew deadline (%v) must be less than lease duration (%v)",
+                        c.Performance.LeaderElectionRenewDeadline, c.Performance.LeaderElectionLeaseDuration)
+        }</span>
+
+        <span class="cov8" title="1">if c.Performance.LeaderElectionRetryPeriod &gt; 0 &amp;&amp;
+                c.Performance.LeaderElectionRenewDeadline &gt; 0 &amp;&amp;
+                c.Performance.LeaderElectionRetryPeriod &gt;= c.Performance.LeaderElectionRenewDeadline </span><span class="cov8" title="1">{
+                return fmt.Errorf("leader election retry period (%v) must be less than renew deadline (%v)",
+                        c.Performance.LeaderElectionRetryPeriod, c.Performance.LeaderElectionRenewDeadline)
+        }</span>
+
+        // Validate bind addresses don't conflict
+        <span class="cov8" title="1">if c.Operator.MetricsBindAddress != "" &amp;&amp; c.Operator.HealthProbeBindAddress != "" </span><span class="cov8" title="1">{
+                if c.Operator.MetricsBindAddress == c.Operator.HealthProbeBindAddress </span><span class="cov8" title="1">{
+                        // Special case: port 0 means OS chooses random port, so multiple binds to :0 are allowed
+                        if c.Operator.MetricsBindAddress != ":0" </span><span class="cov8" title="1">{
+                                return fmt.Errorf("metrics and health probe cannot use the same bind address: %s", c.Operator.MetricsBindAddress)
+                        }</span>
+                }
+
+                // Extract ports and check for conflicts on same host
+                <span class="cov8" title="1">metricsHost, metricsPort, err1 := net.SplitHostPort(c.Operator.MetricsBindAddress)
+                healthHost, healthPort, err2 := net.SplitHostPort(c.Operator.HealthProbeBindAddress)
+
+                if err1 == nil &amp;&amp; err2 == nil &amp;&amp; metricsPort == healthPort &amp;&amp; metricsPort != "0" </span><span class="cov8" title="1">{
+                        // Check if they're on the same host (or one is wildcard)
+                        if metricsHost == healthHost || metricsHost == "" || healthHost == "" ||
+                           metricsHost == "0.0.0.0" || healthHost == "0.0.0.0" </span><span class="cov0" title="0">{
+                                return fmt.Errorf("metrics and health probe cannot use the same port: %s", metricsPort)
+                        }</span>
+                }
+        }
+
+        // Validate retry configuration
+        <span class="cov8" title="1">if c.Cloudflare.RetryDelay &gt; 0 &amp;&amp; c.Cloudflare.APITimeout &gt; 0 </span><span class="cov8" title="1">{
+                maxRetryTime := time.Duration(c.Cloudflare.RetryAttempts) * c.Cloudflare.RetryDelay
+                if maxRetryTime &gt;= c.Cloudflare.APITimeout </span><span class="cov8" title="1">{
+                        return fmt.Errorf("total retry time (%v) should be less than API timeout (%v)",
+                                maxRetryTime, c.Cloudflare.APITimeout)
+                }</span>
+        }
+
+        <span class="cov8" title="1">return nil</span>
+}
+</pre>
+
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

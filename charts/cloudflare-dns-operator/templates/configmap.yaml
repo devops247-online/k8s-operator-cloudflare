@@ -1,0 +1,193 @@
+{{- if .Values.config.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cloudflare-dns-operator.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cloudflare-dns-operator.labels" . | nindent 4 }}
+    app.kubernetes.io/component: config
+  {{- with .Values.config.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  {{- if .Values.config.file }}
+  {{- if .Values.config.format | eq "json" }}
+  config.json: |
+    {
+      "environment": {{ .Values.config.environment | default .Values.environment | default "production" | quote }},
+      "operator": {
+        "logLevel": {{ .Values.config.operator.logLevel | default .Values.operator.logLevel | default "info" | quote }},
+        {{- if .Values.config.operator.reconcileInterval }}
+        "reconcileInterval": {{ .Values.config.operator.reconcileInterval | quote }},
+        {{- end }}
+        {{- if .Values.config.operator.metricsBindAddress }}
+        "metricsBindAddress": {{ .Values.config.operator.metricsBindAddress | quote }},
+        {{- end }}
+        {{- if .Values.config.operator.healthProbeBindAddress }}
+        "healthProbeBindAddress": {{ .Values.config.operator.healthProbeBindAddress | quote }},
+        {{- end }}
+        "leaderElection": {{ .Values.config.operator.leaderElection | default .Values.operator.leaderElection | default true }}
+      },
+      "cloudflare": {
+        {{- if .Values.config.cloudflare.apiTimeout }}
+        "apiTimeout": {{ .Values.config.cloudflare.apiTimeout | quote }},
+        {{- end }}
+        {{- if .Values.config.cloudflare.rateLimitRPS }}
+        "rateLimitRPS": {{ .Values.config.cloudflare.rateLimitRPS }},
+        {{- end }}
+        {{- if .Values.config.cloudflare.retryAttempts }}
+        "retryAttempts": {{ .Values.config.cloudflare.retryAttempts }},
+        {{- end }}
+        {{- if .Values.config.cloudflare.retryDelay }}
+        "retryDelay": {{ .Values.config.cloudflare.retryDelay | quote }}
+        {{- end }}
+      },
+      {{- if .Values.config.features }}
+      "features": {
+        "enableWebhooks": {{ .Values.config.features.enableWebhooks | default true }},
+        "enableMetrics": {{ .Values.config.features.enableMetrics | default true }},
+        "enableTracing": {{ .Values.config.features.enableTracing | default false }},
+        "experimentalFeatures": {{ .Values.config.features.experimentalFeatures | default false }}
+        {{- if .Values.config.features.customFlags }}
+        ,
+        "customFlags": {
+          {{- range $key, $value := .Values.config.features.customFlags }}
+          {{ $key | quote }}: {{ $value }}{{ if not (last $key $.Values.config.features.customFlags) }},{{ end }}
+          {{- end }}
+        }
+        {{- end }}
+      },
+      {{- end }}
+      "performance": {
+        "maxConcurrentReconciles": {{ .Values.config.performance.maxConcurrentReconciles | default .Values.performance.maxConcurrentReconciles | default 5 }},
+        {{- if .Values.config.performance.resyncPeriod }}
+        "resyncPeriod": {{ .Values.config.performance.resyncPeriod | quote }},
+        {{- end }}
+        {{- if .Values.config.performance.leaderElectionLeaseDuration }}
+        "leaderElectionLeaseDuration": {{ .Values.config.performance.leaderElectionLeaseDuration | quote }},
+        {{- end }}
+        {{- if .Values.config.performance.leaderElectionRenewDeadline }}
+        "leaderElectionRenewDeadline": {{ .Values.config.performance.leaderElectionRenewDeadline | quote }},
+        {{- end }}
+        {{- if .Values.config.performance.leaderElectionRetryPeriod }}
+        "leaderElectionRetryPeriod": {{ .Values.config.performance.leaderElectionRetryPeriod | quote }}
+        {{- end }}
+      }
+    }
+  {{- else }}
+  config.yaml: |
+    environment: {{ .Values.config.environment | default .Values.environment | default "production" }}
+    operator:
+      logLevel: {{ .Values.config.operator.logLevel | default .Values.operator.logLevel | default "info" }}
+      {{- if .Values.config.operator.reconcileInterval }}
+      reconcileInterval: {{ .Values.config.operator.reconcileInterval }}
+      {{- end }}
+      {{- if .Values.config.operator.metricsBindAddress }}
+      metricsBindAddress: {{ .Values.config.operator.metricsBindAddress }}
+      {{- end }}
+      {{- if .Values.config.operator.healthProbeBindAddress }}
+      healthProbeBindAddress: {{ .Values.config.operator.healthProbeBindAddress }}
+      {{- end }}
+      leaderElection: {{ .Values.config.operator.leaderElection | default .Values.operator.leaderElection | default true }}
+    cloudflare:
+      {{- if .Values.config.cloudflare.apiTimeout }}
+      apiTimeout: {{ .Values.config.cloudflare.apiTimeout }}
+      {{- end }}
+      {{- if .Values.config.cloudflare.rateLimitRPS }}
+      rateLimitRPS: {{ .Values.config.cloudflare.rateLimitRPS }}
+      {{- end }}
+      {{- if .Values.config.cloudflare.retryAttempts }}
+      retryAttempts: {{ .Values.config.cloudflare.retryAttempts }}
+      {{- end }}
+      {{- if .Values.config.cloudflare.retryDelay }}
+      retryDelay: {{ .Values.config.cloudflare.retryDelay }}
+      {{- end }}
+    {{- if .Values.config.features }}
+    features:
+      enableWebhooks: {{ .Values.config.features.enableWebhooks | default true }}
+      enableMetrics: {{ .Values.config.features.enableMetrics | default true }}
+      enableTracing: {{ .Values.config.features.enableTracing | default false }}
+      experimentalFeatures: {{ .Values.config.features.experimentalFeatures | default false }}
+      {{- if .Values.config.features.customFlags }}
+      customFlags:
+        {{- range $key, $value := .Values.config.features.customFlags }}
+        {{ $key }}: {{ $value }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+    performance:
+      maxConcurrentReconciles: {{ .Values.config.performance.maxConcurrentReconciles | default .Values.performance.maxConcurrentReconciles | default 5 }}
+      {{- if .Values.config.performance.resyncPeriod }}
+      resyncPeriod: {{ .Values.config.performance.resyncPeriod }}
+      {{- end }}
+      {{- if .Values.config.performance.leaderElectionLeaseDuration }}
+      leaderElectionLeaseDuration: {{ .Values.config.performance.leaderElectionLeaseDuration }}
+      {{- end }}
+      {{- if .Values.config.performance.leaderElectionRenewDeadline }}
+      leaderElectionRenewDeadline: {{ .Values.config.performance.leaderElectionRenewDeadline }}
+      {{- end }}
+      {{- if .Values.config.performance.leaderElectionRetryPeriod }}
+      leaderElectionRetryPeriod: {{ .Values.config.performance.leaderElectionRetryPeriod }}
+      {{- end }}
+  {{- end }}
+  {{- else }}
+  # Individual configuration keys
+  environment: {{ .Values.config.environment | default .Values.environment | default "production" }}
+  log-level: {{ .Values.config.operator.logLevel | default .Values.operator.logLevel | default "info" }}
+  {{- if .Values.config.operator.reconcileInterval }}
+  reconcile-interval: {{ .Values.config.operator.reconcileInterval }}
+  {{- end }}
+  {{- if .Values.config.operator.metricsBindAddress }}
+  metrics-bind-address: {{ .Values.config.operator.metricsBindAddress }}
+  {{- end }}
+  {{- if .Values.config.operator.healthProbeBindAddress }}
+  health-probe-bind-address: {{ .Values.config.operator.healthProbeBindAddress }}
+  {{- end }}
+  leader-election: {{ .Values.config.operator.leaderElection | default .Values.operator.leaderElection | default true | quote }}
+  {{- if .Values.config.cloudflare.apiTimeout }}
+  api-timeout: {{ .Values.config.cloudflare.apiTimeout }}
+  {{- end }}
+  {{- if .Values.config.cloudflare.rateLimitRPS }}
+  rate-limit-rps: {{ .Values.config.cloudflare.rateLimitRPS | quote }}
+  {{- end }}
+  {{- if .Values.config.cloudflare.retryAttempts }}
+  retry-attempts: {{ .Values.config.cloudflare.retryAttempts | quote }}
+  {{- end }}
+  {{- if .Values.config.cloudflare.retryDelay }}
+  retry-delay: {{ .Values.config.cloudflare.retryDelay }}
+  {{- end }}
+  {{- if .Values.config.features.enableWebhooks }}
+  enable-webhooks: {{ .Values.config.features.enableWebhooks | quote }}
+  {{- end }}
+  {{- if .Values.config.features.enableMetrics }}
+  enable-metrics: {{ .Values.config.features.enableMetrics | quote }}
+  {{- end }}
+  {{- if .Values.config.features.enableTracing }}
+  enable-tracing: {{ .Values.config.features.enableTracing | quote }}
+  {{- end }}
+  {{- if .Values.config.features.experimentalFeatures }}
+  experimental-features: {{ .Values.config.features.experimentalFeatures | quote }}
+  {{- end }}
+  max-concurrent-reconciles: {{ .Values.config.performance.maxConcurrentReconciles | default .Values.performance.maxConcurrentReconciles | default 5 | quote }}
+  {{- if .Values.config.performance.resyncPeriod }}
+  resync-period: {{ .Values.config.performance.resyncPeriod }}
+  {{- end }}
+  {{- if .Values.config.performance.leaderElectionLeaseDuration }}
+  leader-election-lease-duration: {{ .Values.config.performance.leaderElectionLeaseDuration }}
+  {{- end }}
+  {{- if .Values.config.performance.leaderElectionRenewDeadline }}
+  leader-election-renew-deadline: {{ .Values.config.performance.leaderElectionRenewDeadline }}
+  {{- end }}
+  {{- if .Values.config.performance.leaderElectionRetryPeriod }}
+  leader-election-retry-period: {{ .Values.config.performance.leaderElectionRetryPeriod }}
+  {{- end }}
+  {{- end }}
+  {{- if .Values.config.custom }}
+  # Custom configuration keys
+  {{- range $key, $value := .Values.config.custom }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}
+  {{- end }}
+{{- end }}

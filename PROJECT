@@ -7,7 +7,7 @@ domain: cloudflare.io
 layout:
 - go.kubebuilder.io/v4
 projectName: k8s-operator-cloudflare
-repo: github.com/example/cloudflare-dns-operator
+repo: github.com/devops247-online/k8s-operator-cloudflare
 resources:
 - api:
     crdVersion: v1
@@ -16,6 +16,6 @@ resources:
   domain: cloudflare.io
   group: dns
   kind: CloudflareRecord
-  path: github.com/example/cloudflare-dns-operator/api/v1
+  path: github.com/devops247-online/k8s-operator-cloudflare/api/v1
   version: v1
 version: "3"

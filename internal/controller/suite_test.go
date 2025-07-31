@@ -32,7 +32,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	dnsv1 "github.com/example/cloudflare-dns-operator/api/v1"
+	dnsv1 "github.com/devops247-online/k8s-operator-cloudflare/api/v1"
 	// +kubebuilder:scaffold:imports
 )
 
