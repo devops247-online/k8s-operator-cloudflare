@@ -31,9 +31,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	dnsv1 "github.com/example/cloudflare-dns-operator/api/v1"
-	"github.com/example/cloudflare-dns-operator/internal/config"
-	"github.com/example/cloudflare-dns-operator/internal/metrics"
+	dnsv1 "github.com/devops247-online/k8s-operator-cloudflare/api/v1"
+	"github.com/devops247-online/k8s-operator-cloudflare/internal/config"
+	"github.com/devops247-online/k8s-operator-cloudflare/internal/metrics"
 )
 
 const (

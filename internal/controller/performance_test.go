@@ -14,7 +14,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	dnsv1 "github.com/example/cloudflare-dns-operator/api/v1"
+	dnsv1 "github.com/devops247-online/k8s-operator-cloudflare/api/v1"
 )
 
 func TestNewCloudflareRecordReconciler(t *testing.T) {

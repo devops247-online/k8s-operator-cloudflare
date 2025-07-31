@@ -37,8 +37,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	dnsv1 "github.com/example/cloudflare-dns-operator/api/v1"
-	"github.com/example/cloudflare-dns-operator/internal/config"
+	dnsv1 "github.com/devops247-online/k8s-operator-cloudflare/api/v1"
+	"github.com/devops247-online/k8s-operator-cloudflare/internal/config"
 )
 
 // errorClient wraps a client and injects errors for specific operations

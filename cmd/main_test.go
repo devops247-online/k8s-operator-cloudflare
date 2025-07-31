@@ -32,7 +32,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/example/cloudflare-dns-operator/internal/config"
+	"github.com/devops247-online/k8s-operator-cloudflare/internal/config"
 )
 
 func TestInit(t *testing.T) {

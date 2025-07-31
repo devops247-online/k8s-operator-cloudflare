@@ -39,10 +39,10 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	dnsv1 "github.com/example/cloudflare-dns-operator/api/v1"
-	"github.com/example/cloudflare-dns-operator/internal/config"
-	"github.com/example/cloudflare-dns-operator/internal/controller"
-	"github.com/example/cloudflare-dns-operator/internal/health"
+	dnsv1 "github.com/devops247-online/k8s-operator-cloudflare/api/v1"
+	"github.com/devops247-online/k8s-operator-cloudflare/internal/config"
+	"github.com/devops247-online/k8s-operator-cloudflare/internal/controller"
+	"github.com/devops247-online/k8s-operator-cloudflare/internal/health"
 	// +kubebuilder:scaffold:imports
 )
 

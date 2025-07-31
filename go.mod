@@ -1,4 +1,4 @@
-module github.com/example/cloudflare-dns-operator
+module github.com/devops247-online/k8s-operator-cloudflare
 
 go 1.24.0
 
