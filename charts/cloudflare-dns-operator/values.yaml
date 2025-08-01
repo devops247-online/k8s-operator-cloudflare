@@ -353,7 +353,7 @@ networkPolicy:
   prometheusPodLabels:
     app.kubernetes.io/name: prometheus
 
-# Monitoring
+# Monitoring configuration
 monitoring:
   # Enable ServiceMonitor for Prometheus Operator
   serviceMonitor:
@@ -364,6 +364,163 @@ monitoring:
     honorLabels: true
     metricRelabelings: []
     relabelings: []
+
+  # Grafana dashboards configuration
+  grafana:
+    # Enable Grafana dashboard deployment
+    dashboards:
+      enabled: true
+      # Namespace where dashboards should be deployed
+      namespace: monitoring
+      # Labels for dashboard ConfigMaps (for Grafana sidecar discovery)
+      labels:
+        grafana_dashboard: "1"
+        app.kubernetes.io/component: grafana-dashboard
+      # Annotations for dashboard ConfigMaps
+      annotations:
+        grafana_folder: "Cloudflare DNS Operator"
+
+      # Individual dashboard controls
+      operatorOverview:
+        enabled: true
+        title: "Cloudflare DNS Operator - Overview"
+      dnsManagement:
+        enabled: true
+        title: "Cloudflare DNS Operator - DNS Management"
+      performanceResource:
+        enabled: true
+        title: "Cloudflare DNS Operator - Performance & Resources"
+      troubleshooting:
+        enabled: true
+        title: "Cloudflare DNS Operator - Troubleshooting"
+      slaTracking:
+        enabled: true
+        title: "Cloudflare DNS Operator - SLA/SLO Tracking"
+
+  # Prometheus alerting rules configuration
+  prometheusRule:
+    # Enable PrometheusRule deployment
+    enabled: true
+    # Namespace for PrometheusRule (if empty, uses release namespace)
+    namespace: ""
+    # Additional labels for PrometheusRule
+    labels: {}
+    # Annotations for PrometheusRule
+    annotations: {}
+
+    # Alert groups configuration
+    groups:
+      # Critical alerts
+      critical:
+        enabled: true
+        name: "cloudflare-dns-operator.critical"
+        interval: "30s"
+        rules:
+          operatorDown:
+            enabled: true
+            severity: "critical"
+            description: "Cloudflare DNS Operator is down"
+            runbook: >
+              https://github.com/devops247-online/k8s-operator-cloudflare
+              /blob/main/docs/runbooks/operator-down.md
+          highErrorRate:
+            enabled: true
+            threshold: 0.05  # 5% error rate
+            duration: "2m"
+            severity: "critical"
+            description: "High error rate in Cloudflare DNS Operator"
+            runbook: >
+              https://github.com/devops247-online/k8s-operator-cloudflare
+              /blob/main/docs/runbooks/high-error-rate.md
+
+      # Warning alerts
+      warning:
+        enabled: true
+        name: "cloudflare-dns-operator.warning"
+        interval: "30s"
+        rules:
+          apiRateLimitHigh:
+            enabled: true
+            threshold: 0.1  # 90% of rate limit used
+            duration: "5m"
+            severity: "warning"
+            description: "Cloudflare API rate limit usage is high"
+            runbook: >
+              https://github.com/devops247-online/k8s-operator-cloudflare
+              /blob/main/docs/runbooks/rate-limit.md
+          reconcileLatencyHigh:
+            enabled: true
+            threshold: 30  # 30 seconds
+            duration: "5m"
+            severity: "warning"
+            description: "Reconcile latency is high"
+            runbook: >
+              https://github.com/devops247-online/k8s-operator-cloudflare
+              /blob/main/docs/runbooks/high-latency.md
+          resourceExhaustion:
+            enabled: true
+            memoryThreshold: 0.9  # 90% memory usage
+            cpuThreshold: 0.8     # 80% CPU usage
+            duration: "5m"
+            severity: "warning"
+            description: "Resource usage is high"
+            runbook: >
+              https://github.com/devops247-online/k8s-operator-cloudflare
+              /blob/main/docs/runbooks/resource-exhaustion.md
+
+      # Info alerts
+      info:
+        enabled: true
+        name: "cloudflare-dns-operator.info"
+        interval: "60s"
+        rules:
+          leaderElectionChange:
+            enabled: true
+            severity: "info"
+            description: "Leader election changed"
+            runbook: >
+              https://github.com/devops247-online/k8s-operator-cloudflare
+              /blob/main/docs/runbooks/leader-election.md
+          configReload:
+            enabled: true
+            severity: "info"
+            description: "Configuration reloaded"
+
+    # Custom alert rules (user-defined)
+    customRules: []
+    # Example:
+    # customRules:
+    #   - alert: CustomAlert
+    #     expr: custom_metric > 100
+    #     for: 5m
+    #     labels:
+    #       severity: warning
+    #     annotations:
+    #       summary: Custom alert fired
+
+  # Alert manager integration
+  alertmanager:
+    # Enable Alertmanager integration
+    enabled: false
+    # Notification channels
+    notifications:
+      slack:
+        enabled: false
+        webhook: ""
+        channel: "#alerts"
+        title: "Cloudflare DNS Operator Alert"
+      email:
+        enabled: false
+        to: []
+        from: "alerts@example.com"
+        subject: "Cloudflare DNS Operator Alert"
+      pagerduty:
+        enabled: false
+        serviceKey: ""
+      webhook:
+        enabled: false
+        url: ""
+        headers: {}
 
   ingress: []
   egress:

@@ -1,0 +1,126 @@
+{{- if and .Values.monitoring.grafana.dashboards.enabled }}
+{{- if .Values.monitoring.grafana.dashboards.operatorOverview.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cloudflare-dns-operator.fullname" . }}-dashboard-overview
+  {{- if .Values.monitoring.grafana.dashboards.namespace }}
+  namespace: {{ .Values.monitoring.grafana.dashboards.namespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+  labels:
+    {{- include "cloudflare-dns-operator.labels" . | nindent 4 }}
+    {{- with .Values.monitoring.grafana.dashboards.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.monitoring.grafana.dashboards.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  operator-overview.json: |
+{{ .Files.Get "dashboards/operator-overview.json" | indent 4 }}
+{{- end }}
+
+{{- if .Values.monitoring.grafana.dashboards.dnsManagement.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cloudflare-dns-operator.fullname" . }}-dashboard-dns-management
+  {{- if .Values.monitoring.grafana.dashboards.namespace }}
+  namespace: {{ .Values.monitoring.grafana.dashboards.namespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+  labels:
+    {{- include "cloudflare-dns-operator.labels" . | nindent 4 }}
+    {{- with .Values.monitoring.grafana.dashboards.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.monitoring.grafana.dashboards.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  dns-management.json: |
+{{ .Files.Get "dashboards/dns-management.json" | indent 4 }}
+{{- end }}
+
+{{- if .Values.monitoring.grafana.dashboards.performanceResource.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cloudflare-dns-operator.fullname" . }}-dashboard-performance-resource
+  {{- if .Values.monitoring.grafana.dashboards.namespace }}
+  namespace: {{ .Values.monitoring.grafana.dashboards.namespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+  labels:
+    {{- include "cloudflare-dns-operator.labels" . | nindent 4 }}
+    {{- with .Values.monitoring.grafana.dashboards.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.monitoring.grafana.dashboards.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  performance-resource.json: |
+{{ .Files.Get "dashboards/performance-resource.json" | indent 4 }}
+{{- end }}
+
+{{- if .Values.monitoring.grafana.dashboards.troubleshooting.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cloudflare-dns-operator.fullname" . }}-dashboard-troubleshooting
+  {{- if .Values.monitoring.grafana.dashboards.namespace }}
+  namespace: {{ .Values.monitoring.grafana.dashboards.namespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+  labels:
+    {{- include "cloudflare-dns-operator.labels" . | nindent 4 }}
+    {{- with .Values.monitoring.grafana.dashboards.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.monitoring.grafana.dashboards.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  troubleshooting.json: |
+{{ .Files.Get "dashboards/troubleshooting.json" | indent 4 }}
+{{- end }}
+
+{{- if .Values.monitoring.grafana.dashboards.slaTracking.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cloudflare-dns-operator.fullname" . }}-dashboard-sla-tracking
+  {{- if .Values.monitoring.grafana.dashboards.namespace }}
+  namespace: {{ .Values.monitoring.grafana.dashboards.namespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+  labels:
+    {{- include "cloudflare-dns-operator.labels" . | nindent 4 }}
+    {{- with .Values.monitoring.grafana.dashboards.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.monitoring.grafana.dashboards.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  sla-slo-tracking.json: |
+{{ .Files.Get "dashboards/sla-slo-tracking.json" | indent 4 }}
+{{- end }}
+{{- end }}

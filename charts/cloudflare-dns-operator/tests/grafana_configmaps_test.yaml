@@ -1,0 +1,21 @@
+suite: test Grafana dashboards ConfigMaps
+templates:
+  - templates/grafana-dashboards-configmap.yaml
+tests:
+  - it: should not render ConfigMaps when dashboards disabled
+    set:
+      monitoring.grafana.dashboards.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render ConfigMaps when dashboards enabled
+    set:
+      monitoring.grafana.dashboards.enabled: true
+      monitoring.grafana.dashboards.operatorOverview.enabled: true
+      monitoring.grafana.dashboards.dnsManagement.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 5
+      - isKind:
+          of: ConfigMap
