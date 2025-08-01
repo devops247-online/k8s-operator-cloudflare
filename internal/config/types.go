@@ -7,6 +7,8 @@ import (
 )
 
 // ConfigSource represents the source of configuration
+//
+//nolint:revive // ConfigSource name is intentional for this package
 type ConfigSource int
 
 const (

@@ -74,7 +74,13 @@ data:
         {{- if .Values.config.performance.leaderElectionRetryPeriod }}
         "leaderElectionRetryPeriod": {{ .Values.config.performance.leaderElectionRetryPeriod | quote }}
         {{- end }}
-      }
+      },
+      {{- if .Values.logging.enabled }}
+      "logging": {{ include "cloudflare-dns-operator.loggingConfig" . | fromYaml | toJson }},
+      {{- end }}
+      {{- if .Values.tracing.enabled }}
+      "tracing": {{ include "cloudflare-dns-operator.tracingConfig" . | fromYaml | toJson }}
+      {{- end }}
     }
   {{- else }}
   config.yaml: |
@@ -131,6 +137,14 @@ data:
       {{- if .Values.config.performance.leaderElectionRetryPeriod }}
       leaderElectionRetryPeriod: {{ .Values.config.performance.leaderElectionRetryPeriod }}
       {{- end }}
+    {{- if .Values.logging.enabled }}
+    logging:
+{{ include "cloudflare-dns-operator.loggingConfig" . | indent 6 }}
+    {{- end }}
+    {{- if .Values.tracing.enabled }}
+    tracing:
+{{ include "cloudflare-dns-operator.tracingConfig" . | indent 6 }}
+    {{- end }}
   {{- end }}
   {{- else }}
   # Individual configuration keys

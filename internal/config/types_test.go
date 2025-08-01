@@ -169,15 +169,15 @@ func TestConfig_Copy(t *testing.T) {
 			ConfigSources: make(map[string]ConfigSource),
 		}
 
-		copy := original.Copy()
+		copied := original.Copy()
 
 		// Verify values are copied
-		assert.Equal(t, original, copy)
+		assert.Equal(t, original, copied)
 
 		// Verify it's a deep copy by modifying the copy
-		copy.Environment = "staging"
-		copy.Operator.LogLevel = "debug"
-		copy.Features.EnableWebhooks = false
+		copied.Environment = "staging"
+		copied.Operator.LogLevel = "debug"
+		copied.Features.EnableWebhooks = false
 
 		// Original should remain unchanged
 		assert.Equal(t, "production", original.Environment)
