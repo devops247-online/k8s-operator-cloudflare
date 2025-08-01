@@ -1,0 +1,19 @@
+suite: test ServiceMonitor template
+templates:
+  - templates/servicemonitor.yaml
+tests:
+  - it: should not render ServiceMonitor when disabled
+    set:
+      metrics.serviceMonitor.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render ServiceMonitor when enabled
+    set:
+      metrics.serviceMonitor.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: ServiceMonitor
