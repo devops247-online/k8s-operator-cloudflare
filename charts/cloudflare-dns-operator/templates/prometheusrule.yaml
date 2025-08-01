@@ -1,0 +1,223 @@
+{{- if and .Values.monitoring.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "cloudflare-dns-operator.fullname" . }}
+  {{- if .Values.monitoring.prometheusRule.namespace }}
+  namespace: {{ .Values.monitoring.prometheusRule.namespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+  labels:
+    {{- include "cloudflare-dns-operator.labels" . | nindent 4 }}
+    {{- with .Values.monitoring.prometheusRule.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.monitoring.prometheusRule.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  groups:
+  {{- if .Values.monitoring.prometheusRule.groups.critical.enabled }}
+  - name: {{ .Values.monitoring.prometheusRule.groups.critical.name }}
+    interval: {{ .Values.monitoring.prometheusRule.groups.critical.interval }}
+    rules:
+    {{- if .Values.monitoring.prometheusRule.groups.critical.rules.operatorDown.enabled }}
+    - alert: CloudflareDNSOperatorDown
+      expr: up{job="{{ include "cloudflare-dns-operator.fullname" . }}-metrics"} == 0
+      for: 1m
+      labels:
+        severity: {{ .Values.monitoring.prometheusRule.groups.critical.rules.operatorDown.severity }}
+        service: cloudflare-dns-operator
+        component: operator
+      annotations:
+        summary: "Cloudflare DNS Operator is down"
+        description: "{{ .Values.monitoring.prometheusRule.groups.critical.rules.operatorDown.description }}"
+        runbook_url: "{{ .Values.monitoring.prometheusRule.groups.critical.rules.operatorDown.runbook }}"
+    {{- end }}
+
+    {{- if .Values.monitoring.prometheusRule.groups.critical.rules.highErrorRate.enabled }}
+    - alert: CloudflareDNSOperatorHighErrorRate
+      expr: |
+        (
+          sum(rate(controller_runtime_reconcile_total{controller="cloudflarerecord", result="error"}[5m])) /
+          sum(rate(controller_runtime_reconcile_total{controller="cloudflarerecord"}[5m]))
+        ) > {{ .Values.monitoring.prometheusRule.groups.critical.rules.highErrorRate.threshold }}
+      for: {{ .Values.monitoring.prometheusRule.groups.critical.rules.highErrorRate.duration }}
+      labels:
+        severity: {{ .Values.monitoring.prometheusRule.groups.critical.rules.highErrorRate.severity }}
+        service: cloudflare-dns-operator
+        component: reconciler
+      annotations:
+        summary: "High error rate in Cloudflare DNS Operator reconciliation"
+        description: "{{ .Values.monitoring.prometheusRule.groups.critical.rules.highErrorRate.description }}. Current error rate: {{`{{ $value | humanizePercentage }}`}}"
+        runbook_url: "{{ .Values.monitoring.prometheusRule.groups.critical.rules.highErrorRate.runbook }}"
+    {{- end }}
+  {{- end }}
+
+  {{- if .Values.monitoring.prometheusRule.groups.warning.enabled }}
+  - name: {{ .Values.monitoring.prometheusRule.groups.warning.name }}
+    interval: {{ .Values.monitoring.prometheusRule.groups.warning.interval }}
+    rules:
+    {{- if .Values.monitoring.prometheusRule.groups.warning.rules.apiRateLimitHigh.enabled }}
+    - alert: CloudflareAPIRateLimitHigh
+      expr: |
+        (
+          min(cloudflare_api_rate_limit_remaining) /
+          avg(cloudflare_api_rate_limit_total)
+        ) < {{ .Values.monitoring.prometheusRule.groups.warning.rules.apiRateLimitHigh.threshold }}
+      for: {{ .Values.monitoring.prometheusRule.groups.warning.rules.apiRateLimitHigh.duration }}
+      labels:
+        severity: {{ .Values.monitoring.prometheusRule.groups.warning.rules.apiRateLimitHigh.severity }}
+        service: cloudflare-dns-operator
+        component: api-client
+      annotations:
+        summary: "Cloudflare API rate limit usage is high"
+        description: "{{ .Values.monitoring.prometheusRule.groups.warning.rules.apiRateLimitHigh.description }}. Remaining: {{`{{ $value | humanizePercentage }}`}}"
+        runbook_url: "{{ .Values.monitoring.prometheusRule.groups.warning.rules.apiRateLimitHigh.runbook }}"
+    {{- end }}
+
+    {{- if .Values.monitoring.prometheusRule.groups.warning.rules.reconcileLatencyHigh.enabled }}
+    - alert: CloudflareDNSOperatorHighLatency
+      expr: |
+        histogram_quantile(0.95,
+          sum(rate(controller_runtime_reconcile_time_seconds_bucket{controller="cloudflarerecord"}[5m])) by (le)
+        ) > {{ .Values.monitoring.prometheusRule.groups.warning.rules.reconcileLatencyHigh.threshold }}
+      for: {{ .Values.monitoring.prometheusRule.groups.warning.rules.reconcileLatencyHigh.duration }}
+      labels:
+        severity: {{ .Values.monitoring.prometheusRule.groups.warning.rules.reconcileLatencyHigh.severity }}
+        service: cloudflare-dns-operator
+        component: reconciler
+      annotations:
+        summary: "Cloudflare DNS Operator reconcile latency is high"
+        description: "{{ .Values.monitoring.prometheusRule.groups.warning.rules.reconcileLatencyHigh.description }}. P95 latency: {{`{{ $value }}s`}}"
+        runbook_url: "{{ .Values.monitoring.prometheusRule.groups.warning.rules.reconcileLatencyHigh.runbook }}"
+    {{- end }}
+
+    {{- if .Values.monitoring.prometheusRule.groups.warning.rules.resourceExhaustion.enabled }}
+    - alert: CloudflareDNSOperatorHighMemoryUsage
+      expr: |
+        (
+          cloudflare_operator_memory_usage_bytes{type="heap"} /
+          (1024 * 1024 * 1024)
+        ) > ({{ .Values.resources.limits.memory | trimSuffix "Mi" | float64 }} * {{ .Values.monitoring.prometheusRule.groups.warning.rules.resourceExhaustion.memoryThreshold }} / 1024)
+      for: {{ .Values.monitoring.prometheusRule.groups.warning.rules.resourceExhaustion.duration }}
+      labels:
+        severity: {{ .Values.monitoring.prometheusRule.groups.warning.rules.resourceExhaustion.severity }}
+        service: cloudflare-dns-operator
+        component: operator
+      annotations:
+        summary: "Cloudflare DNS Operator memory usage is high"
+        description: "{{ .Values.monitoring.prometheusRule.groups.warning.rules.resourceExhaustion.description }}. Current memory usage: {{`{{ $value }}GB`}}"
+        runbook_url: "{{ .Values.monitoring.prometheusRule.groups.warning.rules.resourceExhaustion.runbook }}"
+
+    - alert: CloudflareDNSOperatorHighCPUUsage
+      expr: |
+        (
+          rate(cloudflare_operator_cpu_usage_seconds[5m]) * 100
+        ) > ({{ .Values.resources.limits.cpu | trimSuffix "m" | float64 }} * {{ .Values.monitoring.prometheusRule.groups.warning.rules.resourceExhaustion.cpuThreshold }} / 1000)
+      for: {{ .Values.monitoring.prometheusRule.groups.warning.rules.resourceExhaustion.duration }}
+      labels:
+        severity: {{ .Values.monitoring.prometheusRule.groups.warning.rules.resourceExhaustion.severity }}
+        service: cloudflare-dns-operator
+        component: operator
+      annotations:
+        summary: "Cloudflare DNS Operator CPU usage is high"
+        description: "{{ .Values.monitoring.prometheusRule.groups.warning.rules.resourceExhaustion.description }}. Current CPU usage: {{`{{ $value }}%`}}"
+        runbook_url: "{{ .Values.monitoring.prometheusRule.groups.warning.rules.resourceExhaustion.runbook }}"
+    {{- end }}
+
+    - alert: CloudflareDNSOperatorWorkQueueHigh
+      expr: workqueue_depth{name="cloudflarerecord"} > 20
+      for: 10m
+      labels:
+        severity: warning
+        service: cloudflare-dns-operator
+        component: workqueue
+      annotations:
+        summary: "Cloudflare DNS Operator work queue depth is high"
+        description: "Work queue depth has been above 20 for more than 10 minutes. Current depth: {{`{{ $value }}`}}"
+        runbook_url: "{{ .Values.monitoring.prometheusRule.groups.warning.rules.reconcileLatencyHigh.runbook }}"
+
+    - alert: CloudflareDNSRecordStuckInPending
+      expr: |
+        sum by (zone_name, zone_id) (cloudflare_dns_records_by_status_total{status="pending"}) > 0
+      for: 30m
+      labels:
+        severity: warning
+        service: cloudflare-dns-operator
+        component: dns-management
+      annotations:
+        summary: "DNS records stuck in pending state"
+        description: "{{`{{ $value }}`}} DNS records in zone {{`{{ $labels.zone_name }}`}} have been pending for more than 30 minutes"
+        runbook_url: "{{ .Values.monitoring.prometheusRule.groups.warning.rules.apiRateLimitHigh.runbook }}"
+    {{- end }}
+
+  {{- if .Values.monitoring.prometheusRule.groups.info.enabled }}
+  - name: {{ .Values.monitoring.prometheusRule.groups.info.name }}
+    interval: {{ .Values.monitoring.prometheusRule.groups.info.interval }}
+    rules:
+    {{- if .Values.monitoring.prometheusRule.groups.info.rules.leaderElectionChange.enabled }}
+    - alert: CloudflareDNSOperatorLeaderElectionChange
+      expr: |
+        changes(controller_runtime_leader_election_master_status[10m]) > 0
+      for: 0s
+      labels:
+        severity: {{ .Values.monitoring.prometheusRule.groups.info.rules.leaderElectionChange.severity }}
+        service: cloudflare-dns-operator
+        component: leader-election
+      annotations:
+        summary: "Cloudflare DNS Operator leader election changed"
+        description: "{{ .Values.monitoring.prometheusRule.groups.info.rules.leaderElectionChange.description }}"
+        runbook_url: "{{ .Values.monitoring.prometheusRule.groups.info.rules.leaderElectionChange.runbook }}"
+    {{- end }}
+
+    {{- if .Values.monitoring.prometheusRule.groups.info.rules.configReload.enabled }}
+    - alert: CloudflareDNSOperatorConfigReload
+      expr: |
+        increase(process_start_time_seconds{job="{{ include "cloudflare-dns-operator.fullname" . }}-metrics"}[5m]) > 0
+      for: 0s
+      labels:
+        severity: {{ .Values.monitoring.prometheusRule.groups.info.rules.configReload.severity }}
+        service: cloudflare-dns-operator
+        component: operator
+      annotations:
+        summary: "Cloudflare DNS Operator restarted"
+        description: "{{ .Values.monitoring.prometheusRule.groups.info.rules.configReload.description }}"
+    {{- end }}
+
+    - alert: CloudflareDNSOperatorNewZoneAdded
+      expr: |
+        increase(cloudflare_zone_health_status[5m]) > 0
+      for: 0s
+      labels:
+        severity: info
+        service: cloudflare-dns-operator
+        component: dns-management
+      annotations:
+        summary: "New Cloudflare zone added to monitoring"
+        description: "A new Cloudflare zone {{`{{ $labels.zone_name }}`}} has been added to the operator's management"
+    {{- end }}
+
+  {{- if .Values.monitoring.prometheusRule.customRules }}
+  - name: {{ include "cloudflare-dns-operator.fullname" . }}.custom
+    interval: 30s
+    rules:
+    {{- range .Values.monitoring.prometheusRule.customRules }}
+    - alert: {{ .alert }}
+      expr: {{ .expr }}
+      {{- if .for }}
+      for: {{ .for }}
+      {{- end }}
+      {{- if .labels }}
+      labels:
+        {{- toYaml .labels | nindent 8 }}
+      {{- end }}
+      {{- if .annotations }}
+      annotations:
+        {{- toYaml .annotations | nindent 8 }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+{{- end }}
