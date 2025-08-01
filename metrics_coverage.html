@@ -1,0 +1,811 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>metrics: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+
+				<option value="file0">github.com/devops247-online/k8s-operator-cloudflare/internal/metrics/business.go (89.4%)</option>
+
+				<option value="file1">github.com/devops247-online/k8s-operator-cloudflare/internal/metrics/cloudflare.go (48.4%)</option>
+
+				<option value="file2">github.com/devops247-online/k8s-operator-cloudflare/internal/metrics/performance.go (92.9%)</option>
+
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+
+			</div>
+		</div>
+		<div id="content">
+
+		<pre class="file" id="file0" style="display: none">package metrics
+
+import (
+        "github.com/prometheus/client_golang/prometheus"
+        dto "github.com/prometheus/client_model/go"
+        "sigs.k8s.io/controller-runtime/pkg/metrics"
+)
+
+var (
+        // Business metrics for DNS records by type
+        dnsRecordsByType = prometheus.NewGaugeVec(
+                prometheus.GaugeOpts{
+                        Name: "cloudflare_dns_records_by_type_total",
+                        Help: "Total number of DNS records managed by type",
+                },
+                []string{"record_type", "zone_name", "zone_id"},
+        )
+
+        // DNS records by status
+        dnsRecordsByStatus = prometheus.NewGaugeVec(
+                prometheus.GaugeOpts{
+                        Name: "cloudflare_dns_records_by_status_total",
+                        Help: "Total number of DNS records by status (active, pending, error)",
+                },
+                []string{"status", "zone_name", "zone_id"},
+        )
+
+        // Zone health metrics
+        zoneHealthStatus = prometheus.NewGaugeVec(
+                prometheus.GaugeOpts{
+                        Name: "cloudflare_zone_health_status",
+                        Help: "Health status of Cloudflare zones (1 = healthy, 0 = unhealthy)",
+                },
+                []string{"zone_id", "zone_name", "health_check"},
+        )
+
+        // Operator reconciliation health
+        reconciliationHealth = prometheus.NewGaugeVec(
+                prometheus.GaugeOpts{
+                        Name: "cloudflare_reconciliation_health",
+                        Help: "Health status of reconciliation process (1 = healthy, 0 = unhealthy)",
+                },
+                []string{"controller", "namespace", "resource_type"},
+        )
+
+        // DNS propagation metrics
+        dnsPropagationTime = prometheus.NewHistogramVec(
+                prometheus.HistogramOpts{
+                        Name:    "cloudflare_dns_propagation_time_seconds",
+                        Help:    "Time taken for DNS changes to propagate",
+                        Buckets: []float64{1, 5, 10, 30, 60, 180, 300, 600},
+                },
+                []string{"record_type", "zone_id", "operation"},
+        )
+
+        // CRD resource status
+        crdResourceStatus = prometheus.NewGaugeVec(
+                prometheus.GaugeOpts{
+                        Name: "cloudflare_crd_resources_total",
+                        Help: "Total number of CloudflareRecord CRD resources by status",
+                },
+                []string{"namespace", "status", "record_type"},
+        )
+
+        // Operator uptime
+        operatorUptime = prometheus.NewGaugeVec(
+                prometheus.GaugeOpts{
+                        Name: "cloudflare_operator_uptime_seconds",
+                        Help: "Uptime of the Cloudflare operator in seconds",
+                },
+                []string{"version", "namespace"},
+        )
+
+        // Configuration validity
+        configurationValidity = prometheus.NewGaugeVec(
+                prometheus.GaugeOpts{
+                        Name: "cloudflare_configuration_validity",
+                        Help: "Validity of operator configuration (1 = valid, 0 = invalid)",
+                },
+                []string{"config_type", "namespace"},
+        )
+
+        // SLI metrics for SLO tracking
+        reconcileSuccessRate = prometheus.NewGaugeVec(
+                prometheus.GaugeOpts{
+                        Name: "cloudflare_reconcile_success_rate",
+                        Help: "Success rate of reconciliation operations (percentage)",
+                },
+                []string{"controller", "namespace", "time_window"},
+        )
+
+        // Average response time SLI
+        averageResponseTime = prometheus.NewGaugeVec(
+                prometheus.GaugeOpts{
+                        Name: "cloudflare_average_response_time_seconds",
+                        Help: "Average response time for operations (SLI metric)",
+                },
+                []string{"operation_type", "time_window"},
+        )
+
+        // Error budget remaining
+        errorBudgetRemaining = prometheus.NewGaugeVec(
+                prometheus.GaugeOpts{
+                        Name: "cloudflare_error_budget_remaining_percent",
+                        Help: "Remaining error budget percentage for SLO tracking",
+                },
+                []string{"slo_name", "time_window"},
+        )
+)
+
+func init() <span class="cov8" title="1">{
+        // Register business metrics with controller-runtime metrics registry
+        metrics.Registry.MustRegister(
+                dnsRecordsByType,
+                dnsRecordsByStatus,
+                zoneHealthStatus,
+                reconciliationHealth,
+                dnsPropagationTime,
+                crdResourceStatus,
+                operatorUptime,
+                configurationValidity,
+                reconcileSuccessRate,
+                averageResponseTime,
+                errorBudgetRemaining,
+        )
+}</span>
+
+// BusinessMetrics provides methods to update business-related metrics
+type BusinessMetrics struct{}
+
+// NewBusinessMetrics creates a new BusinessMetrics instance
+func NewBusinessMetrics() *BusinessMetrics <span class="cov8" title="1">{
+        return &amp;BusinessMetrics{}
+}</span>
+
+// UpdateDNSRecordsByType updates the count of DNS records by type
+func (bm *BusinessMetrics) UpdateDNSRecordsByType(recordType, zoneName, zoneID string, count float64) <span class="cov8" title="1">{
+        dnsRecordsByType.WithLabelValues(recordType, zoneName, zoneID).Set(count)
+}</span>
+
+// UpdateDNSRecordsByStatus updates the count of DNS records by status
+func (bm *BusinessMetrics) UpdateDNSRecordsByStatus(status, zoneName, zoneID string, count float64) <span class="cov8" title="1">{
+        dnsRecordsByStatus.WithLabelValues(status, zoneName, zoneID).Set(count)
+}</span>
+
+// UpdateZoneHealth updates the health status of a zone
+func (bm *BusinessMetrics) UpdateZoneHealth(zoneID, zoneName, healthCheck string, healthy bool) <span class="cov8" title="1">{
+        value := 0.0
+        if healthy </span><span class="cov8" title="1">{
+                value = 1.0
+        }</span>
+        <span class="cov8" title="1">zoneHealthStatus.WithLabelValues(zoneID, zoneName, healthCheck).Set(value)</span>
+}
+
+// UpdateReconciliationHealth updates the health status of reconciliation
+func (bm *BusinessMetrics) UpdateReconciliationHealth(controller, namespace, resourceType string, healthy bool) <span class="cov8" title="1">{
+        value := 0.0
+        if healthy </span><span class="cov8" title="1">{
+                value = 1.0
+        }</span>
+        <span class="cov8" title="1">reconciliationHealth.WithLabelValues(controller, namespace, resourceType).Set(value)</span>
+}
+
+// ObserveDNSPropagationTime records DNS propagation time
+func (bm *BusinessMetrics) ObserveDNSPropagationTime(recordType, zoneID, operation string, seconds float64) <span class="cov8" title="1">{
+        dnsPropagationTime.WithLabelValues(recordType, zoneID, operation).Observe(seconds)
+}</span>
+
+// UpdateCRDResourceStatus updates the count of CRD resources by status
+func (bm *BusinessMetrics) UpdateCRDResourceStatus(namespace, status, recordType string, count float64) <span class="cov8" title="1">{
+        crdResourceStatus.WithLabelValues(namespace, status, recordType).Set(count)
+}</span>
+
+// UpdateOperatorUptime updates the operator uptime
+func (bm *BusinessMetrics) UpdateOperatorUptime(version, namespace string, seconds float64) <span class="cov8" title="1">{
+        operatorUptime.WithLabelValues(version, namespace).Set(seconds)
+}</span>
+
+// UpdateConfigurationValidity updates configuration validity status
+func (bm *BusinessMetrics) UpdateConfigurationValidity(configType, namespace string, valid bool) <span class="cov8" title="1">{
+        value := 0.0
+        if valid </span><span class="cov8" title="1">{
+                value = 1.0
+        }</span>
+        <span class="cov8" title="1">configurationValidity.WithLabelValues(configType, namespace).Set(value)</span>
+}
+
+// UpdateReconcileSuccessRate updates the reconciliation success rate SLI
+func (bm *BusinessMetrics) UpdateReconcileSuccessRate(controller, namespace, timeWindow string, rate float64) <span class="cov8" title="1">{
+        reconcileSuccessRate.WithLabelValues(controller, namespace, timeWindow).Set(rate)
+}</span>
+
+// UpdateAverageResponseTime updates the average response time SLI
+func (bm *BusinessMetrics) UpdateAverageResponseTime(operationType, timeWindow string, seconds float64) <span class="cov8" title="1">{
+        averageResponseTime.WithLabelValues(operationType, timeWindow).Set(seconds)
+}</span>
+
+// UpdateErrorBudgetRemaining updates the remaining error budget percentage
+func (bm *BusinessMetrics) UpdateErrorBudgetRemaining(sloName, timeWindow string, percent float64) <span class="cov8" title="1">{
+        errorBudgetRemaining.WithLabelValues(sloName, timeWindow).Set(percent)
+}</span>
+
+// GetDNSRecordsByType returns the current count of DNS records by type
+func (bm *BusinessMetrics) GetDNSRecordsByType(recordType, zoneName, zoneID string) float64 <span class="cov8" title="1">{
+        if metric, err := dnsRecordsByType.GetMetricWithLabelValues(recordType, zoneName, zoneID); err == nil </span><span class="cov8" title="1">{
+                pb := &amp;dto.Metric{}
+                if err := metric.Write(pb); err == nil &amp;&amp; pb.Gauge != nil </span><span class="cov8" title="1">{
+                        return *pb.Gauge.Value
+                }</span>
+        }
+        <span class="cov0" title="0">return 0</span>
+}
+
+// GetCRDResourceStatus returns the current count of CRD resources by status
+func (bm *BusinessMetrics) GetCRDResourceStatus(namespace, status, recordType string) float64 <span class="cov8" title="1">{
+        if metric, err := crdResourceStatus.GetMetricWithLabelValues(namespace, status, recordType); err == nil </span><span class="cov8" title="1">{
+                pb := &amp;dto.Metric{}
+                if err := metric.Write(pb); err == nil &amp;&amp; pb.Gauge != nil </span><span class="cov8" title="1">{
+                        return *pb.Gauge.Value
+                }</span>
+        }
+        <span class="cov0" title="0">return 0</span>
+}
+
+// GetReconcileSuccessRate returns the current reconciliation success rate
+func (bm *BusinessMetrics) GetReconcileSuccessRate(controller, namespace, timeWindow string) float64 <span class="cov8" title="1">{
+        if metric, err := reconcileSuccessRate.GetMetricWithLabelValues(controller, namespace, timeWindow); err == nil </span><span class="cov8" title="1">{
+                pb := &amp;dto.Metric{}
+                if err := metric.Write(pb); err == nil &amp;&amp; pb.Gauge != nil </span><span class="cov8" title="1">{
+                        return *pb.Gauge.Value
+                }</span>
+        }
+        <span class="cov0" title="0">return 0</span>
+}
+
+// IsZoneHealthy checks if a zone is healthy based on metrics
+func (bm *BusinessMetrics) IsZoneHealthy(zoneID, zoneName, healthCheck string) bool <span class="cov8" title="1">{
+        if metric, err := zoneHealthStatus.GetMetricWithLabelValues(zoneID, zoneName, healthCheck); err == nil </span><span class="cov8" title="1">{
+                pb := &amp;dto.Metric{}
+                if err := metric.Write(pb); err == nil &amp;&amp; pb.Gauge != nil </span><span class="cov8" title="1">{
+                        return *pb.Gauge.Value == 1.0
+                }</span>
+        }
+        <span class="cov0" title="0">return false</span>
+}
+
+// IsReconciliationHealthy checks if reconciliation is healthy
+func (bm *BusinessMetrics) IsReconciliationHealthy(controller, namespace, resourceType string) bool <span class="cov8" title="1">{
+        if metric, err := reconciliationHealth.GetMetricWithLabelValues(controller, namespace, resourceType); err == nil </span><span class="cov8" title="1">{
+                pb := &amp;dto.Metric{}
+                if err := metric.Write(pb); err == nil &amp;&amp; pb.Gauge != nil </span><span class="cov8" title="1">{
+                        return *pb.Gauge.Value == 1.0
+                }</span>
+        }
+        <span class="cov0" title="0">return false</span>
+}
+</pre>
+
+		<pre class="file" id="file1" style="display: none">package metrics
+
+import (
+        "time"
+
+        "github.com/prometheus/client_golang/prometheus"
+        dto "github.com/prometheus/client_model/go"
+        "sigs.k8s.io/controller-runtime/pkg/metrics"
+)
+
+var (
+        // Cloudflare API request metrics
+        cloudflareAPIRequestsTotal = prometheus.NewCounterVec(
+                prometheus.CounterOpts{
+                        Name: "cloudflare_api_requests_total",
+                        Help: "Total number of requests made to Cloudflare API",
+                },
+                []string{"method", "endpoint", "status", "zone_id"},
+        )
+
+        // Cloudflare API response time
+        cloudflareAPIResponseTime = prometheus.NewHistogramVec(
+                prometheus.HistogramOpts{
+                        Name:    "cloudflare_api_response_time_seconds",
+                        Help:    "Response time of Cloudflare API requests in seconds",
+                        Buckets: []float64{0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0},
+                },
+                []string{"method", "endpoint", "status", "zone_id"},
+        )
+
+        // Cloudflare API rate limit metrics
+        cloudflareAPIRateLimitRemaining = prometheus.NewGaugeVec(
+                prometheus.GaugeOpts{
+                        Name: "cloudflare_api_rate_limit_remaining",
+                        Help: "Remaining API rate limit for Cloudflare requests",
+                },
+                []string{"endpoint"},
+        )
+
+        // Cloudflare API rate limit total
+        cloudflareAPIRateLimitTotal = prometheus.NewGaugeVec(
+                prometheus.GaugeOpts{
+                        Name: "cloudflare_api_rate_limit_total",
+                        Help: "Total API rate limit for Cloudflare requests",
+                },
+                []string{"endpoint"},
+        )
+
+        // Cloudflare API errors
+        cloudflareAPIErrorsTotal = prometheus.NewCounterVec(
+                prometheus.CounterOpts{
+                        Name: "cloudflare_api_errors_total",
+                        Help: "Total number of Cloudflare API errors",
+                },
+                []string{"method", "endpoint", "error_type", "zone_id"},
+        )
+
+        // Cloudflare DNS records managed
+        cloudflareDNSRecordsManagedTotal = prometheus.NewGaugeVec(
+                prometheus.GaugeOpts{
+                        Name: "cloudflare_dns_records_managed_total",
+                        Help: "Total number of DNS records currently managed by the operator",
+                },
+                []string{"zone_id", "zone_name", "record_type"},
+        )
+
+        // Cloudflare zones managed
+        cloudflareZonesManagedTotal = prometheus.NewGaugeVec(
+                prometheus.GaugeOpts{
+                        Name: "cloudflare_zones_managed_total",
+                        Help: "Total number of Cloudflare zones managed by the operator",
+                },
+                []string{"zone_name", "plan_type"},
+        )
+
+        // Cloudflare DNS record operations
+        cloudflareDNSRecordOperationsTotal = prometheus.NewCounterVec(
+                prometheus.CounterOpts{
+                        Name: "cloudflare_dns_record_operations_total",
+                        Help: "Total number of DNS record operations (create, update, delete)",
+                },
+                []string{"operation", "record_type", "zone_id", "result"},
+        )
+
+        // Cloudflare API request duration by operation
+        cloudflareOperationDuration = prometheus.NewHistogramVec(
+                prometheus.HistogramOpts{
+                        Name:    "cloudflare_operation_duration_seconds",
+                        Help:    "Time spent on specific Cloudflare operations",
+                        Buckets: []float64{0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0},
+                },
+                []string{"operation", "zone_id", "result"},
+        )
+
+        // Cloudflare zone status
+        cloudflareZoneStatus = prometheus.NewGaugeVec(
+                prometheus.GaugeOpts{
+                        Name: "cloudflare_zone_status",
+                        Help: "Status of Cloudflare zones (1 = active, 0 = inactive)",
+                },
+                []string{"zone_id", "zone_name", "status"},
+        )
+)
+
+func init() <span class="cov8" title="1">{
+        // Register Cloudflare metrics with controller-runtime metrics registry
+        metrics.Registry.MustRegister(
+                cloudflareAPIRequestsTotal,
+                cloudflareAPIResponseTime,
+                cloudflareAPIRateLimitRemaining,
+                cloudflareAPIRateLimitTotal,
+                cloudflareAPIErrorsTotal,
+                cloudflareDNSRecordsManagedTotal,
+                cloudflareZonesManagedTotal,
+                cloudflareDNSRecordOperationsTotal,
+                cloudflareOperationDuration,
+                cloudflareZoneStatus,
+        )
+}</span>
+
+// CloudflareMetrics provides methods to update Cloudflare-specific metrics
+type CloudflareMetrics struct{}
+
+// NewCloudflareMetrics creates a new CloudflareMetrics instance
+func NewCloudflareMetrics() *CloudflareMetrics <span class="cov8" title="1">{
+        return &amp;CloudflareMetrics{}
+}</span>
+
+// RecordAPIRequest records a Cloudflare API request
+func (cm *CloudflareMetrics) RecordAPIRequest(method, endpoint, status, zoneID string, duration time.Duration) <span class="cov8" title="1">{
+        cloudflareAPIRequestsTotal.WithLabelValues(method, endpoint, status, zoneID).Inc()
+        cloudflareAPIResponseTime.WithLabelValues(method, endpoint, status, zoneID).Observe(duration.Seconds())
+}</span>
+
+// RecordAPIError records a Cloudflare API error
+func (cm *CloudflareMetrics) RecordAPIError(method, endpoint, errorType, zoneID string) <span class="cov8" title="1">{
+        cloudflareAPIErrorsTotal.WithLabelValues(method, endpoint, errorType, zoneID).Inc()
+}</span>
+
+// UpdateRateLimit updates the API rate limit metrics
+func (cm *CloudflareMetrics) UpdateRateLimit(endpoint string, remaining, total float64) <span class="cov8" title="1">{
+        cloudflareAPIRateLimitRemaining.WithLabelValues(endpoint).Set(remaining)
+        cloudflareAPIRateLimitTotal.WithLabelValues(endpoint).Set(total)
+}</span>
+
+// UpdateManagedRecords updates the count of managed DNS records
+func (cm *CloudflareMetrics) UpdateManagedRecords(zoneID, zoneName, recordType string, count float64) <span class="cov8" title="1">{
+        cloudflareDNSRecordsManagedTotal.WithLabelValues(zoneID, zoneName, recordType).Set(count)
+}</span>
+
+// UpdateManagedZones updates the count of managed zones
+func (cm *CloudflareMetrics) UpdateManagedZones(zoneName, planType string, count float64) <span class="cov8" title="1">{
+        cloudflareZonesManagedTotal.WithLabelValues(zoneName, planType).Set(count)
+}</span>
+
+// RecordDNSOperation records a DNS record operation (create, update, delete)
+func (cm *CloudflareMetrics) RecordDNSOperation(operation, recordType, zoneID, result string) <span class="cov8" title="1">{
+        cloudflareDNSRecordOperationsTotal.WithLabelValues(operation, recordType, zoneID, result).Inc()
+}</span>
+
+// ObserveOperationDuration records the duration of a Cloudflare operation
+func (cm *CloudflareMetrics) ObserveOperationDuration(operation, zoneID, result string, duration time.Duration) <span class="cov8" title="1">{
+        cloudflareOperationDuration.WithLabelValues(operation, zoneID, result).Observe(duration.Seconds())
+}</span>
+
+// UpdateZoneStatus updates the status of a Cloudflare zone
+func (cm *CloudflareMetrics) UpdateZoneStatus(zoneID, zoneName, status string, active bool) <span class="cov8" title="1">{
+        value := 0.0
+        if active </span><span class="cov8" title="1">{
+                value = 1.0
+        }</span>
+        <span class="cov8" title="1">cloudflareZoneStatus.WithLabelValues(zoneID, zoneName, status).Set(value)</span>
+}
+
+// GetAPIRequestCount returns the current API request count for a specific endpoint
+func (cm *CloudflareMetrics) GetAPIRequestCount(method, endpoint, status, zoneID string) float64 <span class="cov0" title="0">{
+        if metric, err := cloudflareAPIRequestsTotal.GetMetricWithLabelValues(method, endpoint, status, zoneID); err == nil </span><span class="cov0" title="0">{
+                pb := &amp;dto.Metric{}
+                if err := metric.Write(pb); err == nil &amp;&amp; pb.Counter != nil </span><span class="cov0" title="0">{
+                        return *pb.Counter.Value
+                }</span>
+        }
+        <span class="cov0" title="0">return 0</span>
+}
+
+// GetManagedRecordsCount returns the current count of managed records
+func (cm *CloudflareMetrics) GetManagedRecordsCount(zoneID, zoneName, recordType string) float64 <span class="cov0" title="0">{
+        if metric, err := cloudflareDNSRecordsManagedTotal.GetMetricWithLabelValues(zoneID, zoneName, recordType); err == nil </span><span class="cov0" title="0">{
+                pb := &amp;dto.Metric{}
+                if err := metric.Write(pb); err == nil &amp;&amp; pb.Gauge != nil </span><span class="cov0" title="0">{
+                        return *pb.Gauge.Value
+                }</span>
+        }
+        <span class="cov0" title="0">return 0</span>
+}
+
+// APICallTimer provides a convenient way to time API calls
+type APICallTimer struct {
+        cm       *CloudflareMetrics
+        method   string
+        endpoint string
+        zoneID   string
+        start    time.Time
+}
+
+// NewAPICallTimer creates a new API call timer
+func (cm *CloudflareMetrics) NewAPICallTimer(method, endpoint, zoneID string) *APICallTimer <span class="cov0" title="0">{
+        return &amp;APICallTimer{
+                cm:       cm,
+                method:   method,
+                endpoint: endpoint,
+                zoneID:   zoneID,
+                start:    time.Now(),
+        }
+}</span>
+
+// RecordSuccess records a successful API call
+func (t *APICallTimer) RecordSuccess() <span class="cov0" title="0">{
+        duration := time.Since(t.start)
+        t.cm.RecordAPIRequest(t.method, t.endpoint, "success", t.zoneID, duration)
+}</span>
+
+// RecordError records a failed API call
+func (t *APICallTimer) RecordError(errorType string) <span class="cov0" title="0">{
+        duration := time.Since(t.start)
+        t.cm.RecordAPIRequest(t.method, t.endpoint, "error", t.zoneID, duration)
+        t.cm.RecordAPIError(t.method, t.endpoint, errorType, t.zoneID)
+}</span>
+</pre>
+
+		<pre class="file" id="file2" style="display: none">package metrics
+
+import (
+        "time"
+
+        "github.com/prometheus/client_golang/prometheus"
+        dto "github.com/prometheus/client_model/go"
+        "sigs.k8s.io/controller-runtime/pkg/metrics"
+)
+
+var (
+        // Queue depth metric - number of pending reconcile requests
+        queueDepth = prometheus.NewGaugeVec(
+                prometheus.GaugeOpts{
+                        Name: "cloudflare_operator_queue_depth",
+                        Help: "Number of pending reconcile requests in the controller queue",
+                },
+                []string{"controller", "namespace"},
+        )
+
+        // Reconcile rate metric - reconciles per second
+        reconcileRate = prometheus.NewCounterVec(
+                prometheus.CounterOpts{
+                        Name: "cloudflare_operator_reconcile_rate_total",
+                        Help: "Total number of reconciles processed",
+                },
+                []string{"controller", "result", "namespace"}, // result: success, error, requeue
+        )
+
+        // Error rate metric - errors per minute
+        errorRate = prometheus.NewCounterVec(
+                prometheus.CounterOpts{
+                        Name: "cloudflare_operator_error_rate_total",
+                        Help: "Total number of errors encountered during reconciliation",
+                },
+                []string{"controller", "error_type", "namespace"},
+        )
+
+        // API response time metric
+        apiResponseTime = prometheus.NewHistogramVec(
+                prometheus.HistogramOpts{
+                        Name:    "cloudflare_operator_api_response_time_seconds",
+                        Help:    "Response time of Cloudflare API calls in seconds",
+                        Buckets: prometheus.DefBuckets,
+                },
+                []string{"operation", "status_code", "namespace"},
+        )
+
+        // Reconcile duration metric
+        reconcileDuration = prometheus.NewHistogramVec(
+                prometheus.HistogramOpts{
+                        Name:    "cloudflare_operator_reconcile_duration_seconds",
+                        Help:    "Time taken to complete reconciliation in seconds",
+                        Buckets: []float64{0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 15.0, 30.0},
+                },
+                []string{"controller", "result", "namespace"},
+        )
+
+        // Resource processing rate
+        resourceProcessingRate = prometheus.NewGaugeVec(
+                prometheus.GaugeOpts{
+                        Name: "cloudflare_operator_resources_per_second",
+                        Help: "Number of resources processed per second",
+                },
+                []string{"controller", "namespace"},
+        )
+
+        // Cache hit ratio
+        cacheHitRatio = prometheus.NewGaugeVec(
+                prometheus.GaugeOpts{
+                        Name: "cloudflare_operator_cache_hit_ratio",
+                        Help: "Cache hit ratio for controller operations",
+                },
+                []string{"controller", "cache_type"},
+        )
+
+        // Memory usage tracking
+        memoryUsage = prometheus.NewGaugeVec(
+                prometheus.GaugeOpts{
+                        Name: "cloudflare_operator_memory_usage_bytes",
+                        Help: "Memory usage of the operator in bytes",
+                },
+                []string{"type"}, // type: heap, stack, gc
+        )
+
+        // CPU usage tracking
+        cpuUsage = prometheus.NewGaugeVec(
+                prometheus.GaugeOpts{
+                        Name: "cloudflare_operator_cpu_usage_seconds_total",
+                        Help: "CPU usage of the operator in seconds",
+                },
+                []string{"type"}, // type: user, system
+        )
+
+        // Active workers metric
+        activeWorkers = prometheus.NewGaugeVec(
+                prometheus.GaugeOpts{
+                        Name: "cloudflare_operator_active_workers",
+                        Help: "Number of active reconcile workers",
+                },
+                []string{"controller"},
+        )
+)
+
+func init() <span class="cov8" title="1">{
+        // Register metrics with controller-runtime metrics registry
+        metrics.Registry.MustRegister(
+                queueDepth,
+                reconcileRate,
+                errorRate,
+                apiResponseTime,
+                reconcileDuration,
+                resourceProcessingRate,
+                cacheHitRatio,
+                memoryUsage,
+                cpuUsage,
+                activeWorkers,
+        )
+}</span>
+
+// PerformanceMetrics provides methods to update performance metrics
+type PerformanceMetrics struct{}
+
+// NewPerformanceMetrics creates a new PerformanceMetrics instance
+func NewPerformanceMetrics() *PerformanceMetrics <span class="cov8" title="1">{
+        return &amp;PerformanceMetrics{}
+}</span>
+
+// UpdateQueueDepth updates the queue depth metric
+func (pm *PerformanceMetrics) UpdateQueueDepth(controller, namespace string, depth float64) <span class="cov8" title="1">{
+        queueDepth.WithLabelValues(controller, namespace).Set(depth)
+}</span>
+
+// IncReconcileRate increments the reconcile rate metric
+func (pm *PerformanceMetrics) IncReconcileRate(controller, result, namespace string) <span class="cov8" title="1">{
+        reconcileRate.WithLabelValues(controller, result, namespace).Inc()
+}</span>
+
+// IncErrorRate increments the error rate metric
+func (pm *PerformanceMetrics) IncErrorRate(controller, errorType, namespace string) <span class="cov8" title="1">{
+        errorRate.WithLabelValues(controller, errorType, namespace).Inc()
+}</span>
+
+// ObserveAPIResponseTime records API response time
+func (pm *PerformanceMetrics) ObserveAPIResponseTime(operation, statusCode, namespace string, duration time.Duration) <span class="cov8" title="1">{
+        apiResponseTime.WithLabelValues(operation, statusCode, namespace).Observe(duration.Seconds())
+}</span>
+
+// ObserveReconcileDuration records reconcile duration
+func (pm *PerformanceMetrics) ObserveReconcileDuration(controller, result, namespace string, duration time.Duration) <span class="cov8" title="1">{
+        reconcileDuration.WithLabelValues(controller, result, namespace).Observe(duration.Seconds())
+}</span>
+
+// UpdateResourceProcessingRate updates the resource processing rate
+func (pm *PerformanceMetrics) UpdateResourceProcessingRate(controller, namespace string, rate float64) <span class="cov8" title="1">{
+        resourceProcessingRate.WithLabelValues(controller, namespace).Set(rate)
+}</span>
+
+// UpdateCacheHitRatio updates the cache hit ratio
+func (pm *PerformanceMetrics) UpdateCacheHitRatio(controller, cacheType string, ratio float64) <span class="cov8" title="1">{
+        cacheHitRatio.WithLabelValues(controller, cacheType).Set(ratio)
+}</span>
+
+// UpdateMemoryUsage updates memory usage metrics
+func (pm *PerformanceMetrics) UpdateMemoryUsage(memType string, bytes float64) <span class="cov8" title="1">{
+        memoryUsage.WithLabelValues(memType).Set(bytes)
+}</span>
+
+// UpdateCPUUsage updates CPU usage metrics
+func (pm *PerformanceMetrics) UpdateCPUUsage(cpuType string, seconds float64) <span class="cov8" title="1">{
+        cpuUsage.WithLabelValues(cpuType).Set(seconds)
+}</span>
+
+// UpdateActiveWorkers updates the active workers metric
+func (pm *PerformanceMetrics) UpdateActiveWorkers(controller string, count float64) <span class="cov8" title="1">{
+        activeWorkers.WithLabelValues(controller).Set(count)
+}</span>
+
+// GetQueueDepthMetric returns the current queue depth for HPA
+func (pm *PerformanceMetrics) GetQueueDepthMetric(controller, namespace string) float64 <span class="cov8" title="1">{
+        metric := &amp;dto.Metric{}
+        if m, err := queueDepth.GetMetricWithLabelValues(controller, namespace); err == nil </span><span class="cov8" title="1">{
+                if err := m.Write(metric); err == nil &amp;&amp; metric.Gauge != nil </span><span class="cov8" title="1">{
+                        return *metric.Gauge.Value
+                }</span>
+        }
+        <span class="cov0" title="0">return 0</span>
+}
+
+// GetReconcileRateMetric returns the current reconcile rate for HPA
+func (pm *PerformanceMetrics) GetReconcileRateMetric(controller, namespace string) float64 <span class="cov8" title="1">{
+        // Calculate rate based on success reconciles in the last minute
+        metric := &amp;dto.Metric{}
+        if m, err := reconcileRate.GetMetricWithLabelValues(controller, "success", namespace); err == nil </span><span class="cov8" title="1">{
+                if err := m.Write(metric); err == nil &amp;&amp; metric.Counter != nil </span><span class="cov8" title="1">{
+                        return *metric.Counter.Value
+                }</span>
+        }
+        <span class="cov0" title="0">return 0</span>
+}
+
+// GetErrorRateMetric returns the current error rate for HPA
+func (pm *PerformanceMetrics) GetErrorRateMetric(controller, namespace string) float64 <span class="cov8" title="1">{
+        // Sum all error types for the controller and namespace
+        totalErrors := 0.0
+
+        // This is a simplified version - in practice, you'd iterate through all error types
+        metric := &amp;dto.Metric{}
+        if m, err := errorRate.GetMetricWithLabelValues(controller, "reconcile_error", namespace); err == nil </span><span class="cov8" title="1">{
+                if err := m.Write(metric); err == nil &amp;&amp; metric.Counter != nil </span><span class="cov8" title="1">{
+                        totalErrors += *metric.Counter.Value
+                }</span>
+        }
+
+        <span class="cov8" title="1">return totalErrors</span>
+}
+</pre>
+
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
