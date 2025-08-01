@@ -74,6 +74,65 @@ resources:
     cpu: 100m
     memory: 64Mi
 
+# Metrics configuration
+metrics:
+  # Enable metrics collection
+  enabled: true
+  # Metrics endpoint port
+  port: 8081
+  # Metrics endpoint path
+  path: /metrics
+
+  # Service configuration for metrics
+  service:
+    labels: {}
+    annotations: {}
+
+  # ServiceMonitor for Prometheus Operator
+  serviceMonitor:
+    # Enable ServiceMonitor creation
+    enabled: false
+    # Namespace for ServiceMonitor (if empty, uses release namespace)
+    namespace: ""
+    # Scrape interval
+    interval: 30s
+    # Scrape timeout
+    scrapeTimeout: 10s
+    # Additional labels for ServiceMonitor
+    labels: {}
+    # Additional annotations for ServiceMonitor
+    annotations: {}
+    # Honor labels from target
+    honorLabels: true
+    # Basic auth configuration
+    basicAuth: {}
+    # Bearer token file path
+    bearerTokenFile: ""
+    # Bearer token secret
+    bearerTokenSecret: {}
+    # TLS configuration
+    tlsConfig: {}
+    # Relabeling rules for metrics
+    relabelings: []
+    # Metric relabeling rules
+    metricRelabelings: []
+    # Job label
+    jobLabel: ""
+    # Target labels
+    targetLabels: []
+    # Pod target labels
+    podTargetLabels: []
+    # Sample limit
+    sampleLimit: 0
+    # Target limit
+    targetLimit: 0
+    # Label limit
+    labelLimit: 0
+    # Label name length limit
+    labelNameLengthLimit: 0
+    # Label value length limit
+    labelValueLengthLimit: 0
+
 # Health check configuration
 healthChecks:
   enabled: true

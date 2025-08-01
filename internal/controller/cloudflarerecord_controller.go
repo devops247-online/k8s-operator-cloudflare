@@ -55,8 +55,10 @@ type CloudflareRecordReconciler struct {
 	RequeueInterval         time.Duration
 	RequeueIntervalOnError  time.Duration
 
-	// Metrics collector
+	// Metrics collectors
 	performanceMetrics *metrics.PerformanceMetrics
+	cloudflareMetrics  *metrics.CloudflareMetrics
+	businessMetrics    *metrics.BusinessMetrics
 }
 
 // +kubebuilder:rbac:groups=dns.cloudflare.io,resources=cloudflarerecords,verbs=get;list;watch;create;update;patch;delete
@@ -72,6 +74,8 @@ func NewCloudflareRecordReconciler(kubeClient client.Client, scheme *runtime.Sch
 		Scheme:             scheme,
 		configManager:      configManager,
 		performanceMetrics: metrics.NewPerformanceMetrics(),
+		cloudflareMetrics:  metrics.NewCloudflareMetrics(),
+		businessMetrics:    metrics.NewBusinessMetrics(),
 	}
 
 	// Load performance configuration from config manager or environment variables
@@ -223,6 +227,12 @@ func (r *CloudflareRecordReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		"name", cloudflareRecord.Spec.Name,
 		"content", cloudflareRecord.Spec.Content)
 
+	// Update business metrics for CRD resource status
+	r.businessMetrics.UpdateCRDResourceStatus(req.Namespace, "processing", cloudflareRecord.Spec.Type, 1)
+
+	// Update DNS records by type metric
+	r.businessMetrics.UpdateDNSRecordsByType(cloudflareRecord.Spec.Type, cloudflareRecord.Spec.Zone, "", 1)
+
 	// TODO: Implement full Cloudflare API integration here
 	// For now, just update status to show operator is working
 
@@ -252,21 +262,40 @@ func (r *CloudflareRecordReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	r.performanceMetrics.ObserveReconcileDuration("cloudflarerecord", "success", req.Namespace, duration)
 	r.performanceMetrics.IncReconcileRate("cloudflarerecord", "success", req.Namespace)
 
+	// Update business metrics for successful reconciliation
+	r.businessMetrics.UpdateCRDResourceStatus(req.Namespace, "ready", cloudflareRecord.Spec.Type, 1)
+	r.businessMetrics.UpdateReconciliationHealth("cloudflarerecord", req.Namespace, "CloudflareRecord", true)
+	r.businessMetrics.UpdateDNSRecordsByStatus("active", cloudflareRecord.Spec.Zone, "", 1)
+
+	// Simulate API call metrics (in real implementation, this would be in API call)
+	r.cloudflareMetrics.RecordAPIRequest("POST", "/zones/dns_records", "200", "", duration)
+	r.cloudflareMetrics.RecordDNSOperation("create", cloudflareRecord.Spec.Type, "", "success")
+
 	// Requeue with configured interval
 	return ctrl.Result{RequeueAfter: r.RequeueInterval}, nil
 }
 
 // reconcileDelete handles the deletion of CloudflareRecord
 func (r *CloudflareRecordReconciler) reconcileDelete(ctx context.Context, cloudflareRecord *dnsv1.CloudflareRecord) (ctrl.Result, error) {
+	startTime := time.Now()
 	log := logf.FromContext(ctx)
 	log.Info("Deleting CloudflareRecord", "name", cloudflareRecord.Name)
 
 	// TODO: In a full implementation, delete the DNS record from Cloudflare here
+	// Simulate API call metrics for deletion
+	duration := time.Since(startTime)
+	r.cloudflareMetrics.RecordAPIRequest("DELETE", "/zones/dns_records", "200", "", duration)
+	r.cloudflareMetrics.RecordDNSOperation("delete", cloudflareRecord.Spec.Type, "", "success")
+
+	// Update business metrics for deletion
+	r.businessMetrics.UpdateCRDResourceStatus(cloudflareRecord.Namespace, "deleting", cloudflareRecord.Spec.Type, 1)
+	r.businessMetrics.UpdateDNSRecordsByType(cloudflareRecord.Spec.Type, cloudflareRecord.Spec.Zone, "", -1)
 
 	// Remove finalizer
 	controllerutil.RemoveFinalizer(cloudflareRecord, CloudflareRecordFinalizer)
 	if err := r.Update(ctx, cloudflareRecord); err != nil {
 		log.Error(err, "Failed to remove finalizer")
+		r.cloudflareMetrics.RecordAPIError("DELETE", "/zones/dns_records", "finalizer_error", "")
 		return ctrl.Result{RequeueAfter: r.RequeueIntervalOnError}, err
 	}
 
