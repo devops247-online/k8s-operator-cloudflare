@@ -43,6 +43,8 @@ import (
 	"github.com/devops247-online/k8s-operator-cloudflare/internal/config"
 	"github.com/devops247-online/k8s-operator-cloudflare/internal/controller"
 	"github.com/devops247-online/k8s-operator-cloudflare/internal/health"
+	"github.com/devops247-online/k8s-operator-cloudflare/internal/logging"
+	"github.com/devops247-online/k8s-operator-cloudflare/internal/tracing"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -104,13 +106,82 @@ func main() {
 		"Name of the resource used for leader election")
 	flag.StringVar(&leaderElectResourceNamespace, "leader-elect-resource-namespace", "",
 		"Namespace for leader election resource (empty means same as deployment namespace)")
+
+	// Add structured logging flags
+	var logLevel string
+	var logFormat string
+	var enableTracing bool
+	flag.StringVar(&logLevel, "log-level", "info", "Log level (debug, info, warn, error)")
+	flag.StringVar(&logFormat, "log-format", "json", "Log format (json, console)")
+	flag.BoolVar(&enableTracing, "enable-tracing", false, "Enable distributed tracing")
+
 	opts := zap.Options{
 		Development: true,
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	// Determine environment
+	environment := os.Getenv("OPERATOR_ENVIRONMENT")
+	if environment == "" {
+		environment = "development"
+	}
+
+	// Setup structured logging
+	loggingConfig := logging.NewEnvironmentConfig(environment)
+	if logLevel != "" {
+		loggingConfig.Level = logLevel
+	}
+	if logFormat != "" {
+		loggingConfig.Format = logFormat
+	}
+
+	// Override with environment variables
+	if envLevel := os.Getenv("LOG_LEVEL"); envLevel != "" {
+		loggingConfig.Level = envLevel
+	}
+	if envFormat := os.Getenv("LOG_FORMAT"); envFormat != "" {
+		loggingConfig.Format = envFormat
+	}
+
+	// Setup global logger
+	err := logging.SetupGlobalLogger(loggingConfig)
+	if err != nil {
+		setupLog.Error(err, "Failed to setup structured logging, falling back to default")
+		ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	} else {
+		// Create logr logger from our structured logger
+		logrLogger, err := logging.LogrFromConfig(environment)
+		if err != nil {
+			setupLog.Error(err, "Failed to create logr logger, falling back to default")
+			ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+		} else {
+			ctrl.SetLogger(logrLogger)
+		}
+	}
+
+	// Setup distributed tracing
+	var tracingProvider *tracing.Provider
+	tracingConfig := tracing.NewEnvironmentConfig(environment)
+
+	// Override tracing enabled from flags or env
+	if enableTracing {
+		tracingConfig.Enabled = true
+	}
+	if envTracing := os.Getenv("TRACING_ENABLED"); envTracing != "" {
+		tracingConfig.Enabled = envTracing == "true"
+	}
+
+	if tracingConfig.Enabled {
+		tracingProvider, err = tracing.SetupGlobalTracer(tracingConfig)
+		if err != nil {
+			setupLog.Error(err, "Failed to setup distributed tracing")
+		} else {
+			setupLog.Info("Distributed tracing initialized successfully",
+				"service", tracingConfig.GetServiceName(),
+				"exporter", tracingConfig.Exporter.Type)
+		}
+	}
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -249,9 +320,9 @@ func main() {
 		configMapName = DefaultConfigMapName
 	}
 
-	environment := os.Getenv("OPERATOR_ENVIRONMENT")
-	if environment == "" {
-		environment = ProductionEnvironment
+	configEnv := os.Getenv("OPERATOR_ENVIRONMENT")
+	if configEnv == "" {
+		configEnv = ProductionEnvironment
 	}
 
 	loadOptions := config.LoadOptions{
@@ -265,8 +336,8 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "failed to load operator configuration")
 		// Fall back to default configuration
-		setupLog.Info("Using default configuration", "environment", environment)
-		operatorConfig = config.GetEnvironmentDefaults(environment) // nolint:staticcheck // False positive SA4006
+		setupLog.Info("Using default configuration", "environment", configEnv)
+		operatorConfig = config.GetEnvironmentDefaults(configEnv) // nolint:staticcheck // False positive SA4006
 	} else {
 		setupLog.Info("Configuration loaded successfully",
 			"environment", operatorConfig.Environment,
@@ -362,6 +433,20 @@ func main() {
 	health.SetupProfiling(http.DefaultServeMux)
 
 	setupLog.Info("starting manager")
+
+	// Setup graceful shutdown for tracing
+	if tracingProvider != nil {
+		defer func() {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := tracingProvider.Shutdown(shutdownCtx); err != nil {
+				setupLog.Error(err, "Failed to shutdown tracing provider")
+			} else {
+				setupLog.Info("Tracing provider shutdown successfully")
+			}
+		}()
+	}
+
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)

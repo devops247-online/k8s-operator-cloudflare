@@ -33,7 +33,9 @@ import (
 
 	dnsv1 "github.com/devops247-online/k8s-operator-cloudflare/api/v1"
 	"github.com/devops247-online/k8s-operator-cloudflare/internal/config"
+	"github.com/devops247-online/k8s-operator-cloudflare/internal/logging"
 	"github.com/devops247-online/k8s-operator-cloudflare/internal/metrics"
+	"github.com/devops247-online/k8s-operator-cloudflare/internal/tracing"
 )
 
 const (
@@ -143,7 +145,40 @@ func (r *CloudflareRecordReconciler) loadPerformanceConfig() {
 // move the current state of the cluster closer to the desired state.
 func (r *CloudflareRecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	startTime := time.Now()
+
+	// Start tracing span
+	ctx, span := tracing.StartSpan(ctx, "CloudflareRecordReconciler.Reconcile")
+	defer span.End()
+
+	// Add trace attributes
+	span.SetAttributes(
+		tracing.StringAttribute("cloudflare.record.name", req.Name),
+		tracing.StringAttribute("cloudflare.record.namespace", req.Namespace),
+	)
+
+	// Create structured logging context
+	reqCtx := logging.RequestContext{
+		RequestID: logging.GenerateRequestID(),
+		Operation: "reconcile",
+		Resource:  req.Name,
+		Namespace: req.Namespace,
+		StartTime: startTime,
+		TraceID:   tracing.GetTraceID(ctx),
+		SpanID:    tracing.GetSpanID(ctx),
+	}
+
+	// Enrich context with request information and structured logger
+	ctx = logging.ContextWithRequestInfo(ctx, reqCtx)
+
+	// Get enriched logger from context or create new one
 	log := logf.FromContext(ctx)
+	structuredLogger := logging.EnrichLogr(ctx, log)
+
+	// Update context with enriched logger
+	ctx = logging.ContextWithLogr(ctx, structuredLogger)
+
+	// Log reconciliation start with structured fields
+	structuredLogger.Info("Starting CloudflareRecord reconciliation")
 
 	// Create context with timeout only if parent context doesn't have deadline
 	var workCtx context.Context
@@ -166,15 +201,18 @@ func (r *CloudflareRecordReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if err := r.Get(workCtx, req.NamespacedName, &cloudflareRecord); err != nil {
 		duration := time.Since(startTime)
 
+		// Add error to span
+		span.RecordError(err)
+
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
-			log.Info("CloudflareRecord resource not found. Ignoring since object must be deleted")
+			structuredLogger.Info("CloudflareRecord resource not found, ignoring since object must be deleted")
 			r.performanceMetrics.ObserveReconcileDuration("cloudflarerecord", "not_found", req.Namespace, duration)
 			r.performanceMetrics.IncReconcileRate("cloudflarerecord", "not_found", req.Namespace)
 			return ctrl.Result{}, nil
 		}
 
-		log.Error(err, "Failed to get CloudflareRecord")
+		structuredLogger.Error(err, "Failed to get CloudflareRecord")
 		r.performanceMetrics.ObserveReconcileDuration("cloudflarerecord", "error", req.Namespace, duration)
 		r.performanceMetrics.IncReconcileRate("cloudflarerecord", "error", req.Namespace)
 		r.performanceMetrics.IncErrorRate("cloudflarerecord", "get_error", req.Namespace)
@@ -185,7 +223,7 @@ func (r *CloudflareRecordReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if r.configManager != nil && r.configManager.IsConfigured() {
 		ffm := r.configManager.GetFeatureFlagManager()
 		if ffm != nil && !ffm.IsEnabled("EnableReconciliation") {
-			log.Info("Reconciliation disabled by feature flag")
+			structuredLogger.Info("Reconciliation disabled by feature flag")
 			return ctrl.Result{RequeueAfter: r.RequeueInterval}, nil
 		}
 	}
@@ -212,7 +250,8 @@ func (r *CloudflareRecordReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		controllerutil.AddFinalizer(&cloudflareRecord, CloudflareRecordFinalizer)
 		if err := r.Update(workCtx, &cloudflareRecord); err != nil {
 			duration := time.Since(startTime)
-			log.Error(err, "Failed to add finalizer")
+			span.RecordError(err)
+			structuredLogger.Error(err, "Failed to add finalizer")
 			r.performanceMetrics.ObserveReconcileDuration("cloudflarerecord", "finalizer_error", req.Namespace, duration)
 			r.performanceMetrics.IncReconcileRate("cloudflarerecord", "finalizer_error", req.Namespace)
 			r.performanceMetrics.IncErrorRate("cloudflarerecord", "finalizer_error", req.Namespace)
@@ -220,8 +259,16 @@ func (r *CloudflareRecordReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 
-	// Log the DNS record details
-	log.Info("Processing CloudflareRecord",
+	// Add DNS record details to span
+	span.SetAttributes(
+		tracing.StringAttribute("cloudflare.zone", cloudflareRecord.Spec.Zone),
+		tracing.StringAttribute("cloudflare.type", cloudflareRecord.Spec.Type),
+		tracing.StringAttribute("cloudflare.name", cloudflareRecord.Spec.Name),
+		tracing.StringAttribute("cloudflare.content", cloudflareRecord.Spec.Content),
+	)
+
+	// Log the DNS record details with structured logging
+	structuredLogger.Info("Processing CloudflareRecord",
 		"zone", cloudflareRecord.Spec.Zone,
 		"type", cloudflareRecord.Spec.Type,
 		"name", cloudflareRecord.Spec.Name,
@@ -250,7 +297,8 @@ func (r *CloudflareRecordReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	if err := r.Status().Update(workCtx, &cloudflareRecord); err != nil {
 		duration := time.Since(startTime)
-		log.Error(err, "Failed to update CloudflareRecord status")
+		span.RecordError(err)
+		structuredLogger.Error(err, "Failed to update CloudflareRecord status")
 		r.performanceMetrics.ObserveReconcileDuration("cloudflarerecord", "status_error", req.Namespace, duration)
 		r.performanceMetrics.IncReconcileRate("cloudflarerecord", "status_error", req.Namespace)
 		r.performanceMetrics.IncErrorRate("cloudflarerecord", "status_error", req.Namespace)
@@ -259,6 +307,18 @@ func (r *CloudflareRecordReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// Record successful reconciliation
 	duration := time.Since(startTime)
+
+	// Add success attributes to span
+	span.SetAttributes(
+		tracing.StringAttribute("reconcile.result", "success"),
+		tracing.IntAttribute("reconcile.duration_ms", int(duration.Milliseconds())),
+	)
+
+	// Log successful completion
+	structuredLogger.Info("CloudflareRecord reconciliation completed successfully",
+		"duration", duration.String(),
+		"requeue_after", r.RequeueInterval.String())
+
 	r.performanceMetrics.ObserveReconcileDuration("cloudflarerecord", "success", req.Namespace, duration)
 	r.performanceMetrics.IncReconcileRate("cloudflarerecord", "success", req.Namespace)
 
@@ -278,8 +338,28 @@ func (r *CloudflareRecordReconciler) Reconcile(ctx context.Context, req ctrl.Req
 // reconcileDelete handles the deletion of CloudflareRecord
 func (r *CloudflareRecordReconciler) reconcileDelete(ctx context.Context, cloudflareRecord *dnsv1.CloudflareRecord) (ctrl.Result, error) {
 	startTime := time.Now()
-	log := logf.FromContext(ctx)
-	log.Info("Deleting CloudflareRecord", "name", cloudflareRecord.Name)
+
+	// Start tracing span for delete operation
+	ctx, span := tracing.StartSpan(ctx, "CloudflareRecordReconciler.reconcileDelete")
+	defer span.End()
+
+	// Add trace attributes for delete operation
+	span.SetAttributes(
+		tracing.StringAttribute("cloudflare.record.name", cloudflareRecord.Name),
+		tracing.StringAttribute("cloudflare.record.namespace", cloudflareRecord.Namespace),
+		tracing.StringAttribute("cloudflare.zone", cloudflareRecord.Spec.Zone),
+		tracing.StringAttribute("cloudflare.type", cloudflareRecord.Spec.Type),
+		tracing.StringAttribute("operation", "delete"),
+	)
+
+	// Get structured logger from context
+	structuredLogger := logging.LogrFromContext(ctx)
+
+	structuredLogger.Info("Deleting CloudflareRecord",
+		"name", cloudflareRecord.Name,
+		"namespace", cloudflareRecord.Namespace,
+		"zone", cloudflareRecord.Spec.Zone,
+		"type", cloudflareRecord.Spec.Type)
 
 	// TODO: In a full implementation, delete the DNS record from Cloudflare here
 	// Simulate API call metrics for deletion
@@ -294,10 +374,21 @@ func (r *CloudflareRecordReconciler) reconcileDelete(ctx context.Context, cloudf
 	// Remove finalizer
 	controllerutil.RemoveFinalizer(cloudflareRecord, CloudflareRecordFinalizer)
 	if err := r.Update(ctx, cloudflareRecord); err != nil {
-		log.Error(err, "Failed to remove finalizer")
+		span.RecordError(err)
+		structuredLogger.Error(err, "Failed to remove finalizer")
 		r.cloudflareMetrics.RecordAPIError("DELETE", "/zones/dns_records", "finalizer_error", "")
 		return ctrl.Result{RequeueAfter: r.RequeueIntervalOnError}, err
 	}
+
+	// Add success attributes to span
+	span.SetAttributes(
+		tracing.StringAttribute("delete.result", "success"),
+		tracing.IntAttribute("delete.duration_ms", int(duration.Milliseconds())),
+	)
+
+	// Log successful deletion
+	structuredLogger.Info("CloudflareRecord deletion completed successfully",
+		"duration", duration.String())
 
 	return ctrl.Result{}, nil
 }

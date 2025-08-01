@@ -2,6 +2,10 @@ run:
   timeout: 5m
   allow-parallel-runners: true
 
+# golangci-lint configuration version
+# See https://golangci-lint.run/usage/configuration/
+version: 2
+
 linters:
   enable:
     - copyloopvar
