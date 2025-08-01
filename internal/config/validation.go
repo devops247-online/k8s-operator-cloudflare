@@ -108,17 +108,17 @@ func ValidateLogLevel(level string) error {
 }
 
 // ValidateDuration validates a duration against min/max bounds
-func ValidateDuration(duration, min, max time.Duration, fieldName string) error {
+func ValidateDuration(duration, minDur, maxDur time.Duration, fieldName string) error {
 	if duration <= 0 {
 		return fmt.Errorf("%s must be positive, got: %v", fieldName, duration)
 	}
 
-	if duration < min {
-		return fmt.Errorf("%s must be at least %v, got: %v", fieldName, min, duration)
+	if duration < minDur {
+		return fmt.Errorf("%s must be at least %v, got: %v", fieldName, minDur, duration)
 	}
 
-	if max > 0 && duration > max {
-		return fmt.Errorf("%s must be at most %v, got: %v", fieldName, max, duration)
+	if maxDur > 0 && duration > maxDur {
+		return fmt.Errorf("%s must be at most %v, got: %v", fieldName, maxDur, duration)
 	}
 
 	return nil

@@ -877,3 +877,124 @@ config:
   # custom:
   #   specialSetting: "value"
   #   debugMode: "true"
+
+# Structured Logging configuration
+logging:
+  # Enable structured logging
+  enabled: true
+
+  # Log level: debug, info, warn, error
+  level: info
+
+  # Log format: json, console
+  format: json
+
+  # Development mode (enables caller info, stack traces)
+  development: false
+
+  # Output destinations (stdout, stderr, file paths)
+  outputs:
+    - stdout
+
+  # Log sampling configuration
+  sampling:
+    # Enable log sampling to reduce log volume
+    enabled: false
+    # Initial number of logs to always emit
+    initial: 100
+    # After initial, emit every Nth log entry
+    thereafter: 100
+
+  # Environment-specific overrides
+  environments:
+    development:
+      level: debug
+      format: console
+      development: true
+      sampling:
+        enabled: false
+    staging:
+      level: info
+      format: json
+      development: false
+      sampling:
+        enabled: true
+        initial: 100
+        thereafter: 100
+    production:
+      level: info
+      format: json
+      development: false
+      sampling:
+        enabled: true
+        initial: 50
+        thereafter: 200
+
+# Distributed Tracing configuration
+tracing:
+  # Enable distributed tracing
+  enabled: false
+
+  # Service name for tracing
+  serviceName: cloudflare-dns-operator
+
+  # Service version for tracing
+  serviceVersion: ""  # Uses chart appVersion if empty
+
+  # Deployment environment
+  environment: production
+
+  # Trace exporter configuration
+  exporter:
+    # Exporter type: otlp, console, none
+    type: otlp
+    # OTLP endpoint for traces
+    endpoint: http://jaeger-collector:14268/api/traces
+    # Request timeout
+    timeout: 30s
+    # Use insecure connection
+    insecure: false
+    # Custom headers for exporter
+    headers: {}
+    # Compression: gzip, none
+    compression: gzip
+
+  # Trace sampling configuration
+  sampling:
+    # Sampling type: always, never, trace_id_ratio, parent_based
+    type: parent_based
+    # Sampling ratio (0.0 to 1.0) for trace_id_ratio and parent_based
+    ratio: 0.1
+
+  # Custom resource attributes
+  resourceAttributes:
+    # Add custom attributes to traces
+    # deployment.environment: production
+    # service.namespace: cloudflare-dns-operator
+
+  # Environment-specific overrides
+  environments:
+    development:
+      enabled: true
+      exporter:
+        type: console
+        endpoint: ""
+      sampling:
+        type: always
+        ratio: 1.0
+    staging:
+      enabled: true
+      exporter:
+        type: otlp
+        endpoint: http://jaeger-collector.monitoring:14268/api/traces
+      sampling:
+        type: trace_id_ratio
+        ratio: 0.5
+    production:
+      enabled: false
+      exporter:
+        type: otlp
+        endpoint: http://jaeger-collector.monitoring:14268/api/traces
+      sampling:
+        type: parent_based
+        ratio: 0.1

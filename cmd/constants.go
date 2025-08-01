@@ -1,3 +1,4 @@
+// Package main contains constants used throughout the Cloudflare DNS operator.
 package main
 
 const (

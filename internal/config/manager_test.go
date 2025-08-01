@@ -322,12 +322,12 @@ func TestConfigManager_ConfigChangeCallback(t *testing.T) {
 		var callback1Called, callback2Called bool
 		done := make(chan bool, 2)
 
-		manager.RegisterConfigChangeCallback(func(old, new *Config) {
+		manager.RegisterConfigChangeCallback(func(old, newConfig *Config) {
 			callback1Called = true
 			done <- true
 		})
 
-		manager.RegisterConfigChangeCallback(func(old, new *Config) {
+		manager.RegisterConfigChangeCallback(func(old, newConfig *Config) {
 			callback2Called = true
 			done <- true
 		})
