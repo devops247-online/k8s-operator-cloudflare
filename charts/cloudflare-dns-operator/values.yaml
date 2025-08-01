@@ -420,14 +420,18 @@ monitoring:
             enabled: true
             severity: "critical"
             description: "Cloudflare DNS Operator is down"
-            runbook: "https://github.com/devops247-online/k8s-operator-cloudflare/blob/main/docs/runbooks/operator-down.md"
+            runbook: >
+              https://github.com/devops247-online/k8s-operator-cloudflare
+              /blob/main/docs/runbooks/operator-down.md
           highErrorRate:
             enabled: true
             threshold: 0.05  # 5% error rate
             duration: "2m"
             severity: "critical"
             description: "High error rate in Cloudflare DNS Operator"
-            runbook: "https://github.com/devops247-online/k8s-operator-cloudflare/blob/main/docs/runbooks/high-error-rate.md"
+            runbook: >
+              https://github.com/devops247-online/k8s-operator-cloudflare
+              /blob/main/docs/runbooks/high-error-rate.md
 
       # Warning alerts
       warning:
@@ -441,14 +445,18 @@ monitoring:
             duration: "5m"
             severity: "warning"
             description: "Cloudflare API rate limit usage is high"
-            runbook: "https://github.com/devops247-online/k8s-operator-cloudflare/blob/main/docs/runbooks/rate-limit.md"
+            runbook: >
+              https://github.com/devops247-online/k8s-operator-cloudflare
+              /blob/main/docs/runbooks/rate-limit.md
           reconcileLatencyHigh:
             enabled: true
             threshold: 30  # 30 seconds
             duration: "5m"
             severity: "warning"
             description: "Reconcile latency is high"
-            runbook: "https://github.com/devops247-online/k8s-operator-cloudflare/blob/main/docs/runbooks/high-latency.md"
+            runbook: >
+              https://github.com/devops247-online/k8s-operator-cloudflare
+              /blob/main/docs/runbooks/high-latency.md
           resourceExhaustion:
             enabled: true
             memoryThreshold: 0.9  # 90% memory usage
@@ -456,7 +464,9 @@ monitoring:
             duration: "5m"
             severity: "warning"
             description: "Resource usage is high"
-            runbook: "https://github.com/devops247-online/k8s-operator-cloudflare/blob/main/docs/runbooks/resource-exhaustion.md"
+            runbook: >
+              https://github.com/devops247-online/k8s-operator-cloudflare
+              /blob/main/docs/runbooks/resource-exhaustion.md
 
       # Info alerts
       info:
@@ -468,7 +478,9 @@ monitoring:
             enabled: true
             severity: "info"
             description: "Leader election changed"
-            runbook: "https://github.com/devops247-online/k8s-operator-cloudflare/blob/main/docs/runbooks/leader-election.md"
+            runbook: >
+              https://github.com/devops247-online/k8s-operator-cloudflare
+              /blob/main/docs/runbooks/leader-election.md
           configReload:
             enabled: true
             severity: "info"
