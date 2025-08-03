@@ -77,8 +77,17 @@ spec:
             - name: CLOUDFLARE_ZONE_ID
               value: {{ .Values.cloudflare.zoneId | quote }}
             {{- end }}
+            # Structured Logging configuration
+            {{- if .Values.logging.enabled }}
+            {{- include "cloudflare-dns-operator.loggingEnvVars" . | nindent 12 }}
+            {{- else }}
             - name: LOG_LEVEL
               value: {{ .Values.operator.logLevel | quote }}
+            {{- end }}
+            # Distributed Tracing configuration
+            {{- include "cloudflare-dns-operator.tracingEnvVars" . | nindent 12 }}
+            {{- include "cloudflare-dns-operator.tracingResourceAttributesEnvVars" . | nindent 12 }}
+            {{- include "cloudflare-dns-operator.tracingHeadersEnvVars" . | nindent 12 }}
             {{- if .Values.config.enabled }}
             - name: OPERATOR_ENVIRONMENT
               value: {{ .Values.config.environment | default .Values.environment | default "production" | quote }}

@@ -77,7 +77,7 @@ func TestConfig_Merge_AdditionalCases(t *testing.T) {
 
 func TestConfig_Copy_AdditionalCases(t *testing.T) {
 	t.Run("copy with nil config", func(t *testing.T) {
-		var config *Config = nil
+		var config *Config
 		result := config.Copy()
 		assert.Nil(t, result)
 	})
