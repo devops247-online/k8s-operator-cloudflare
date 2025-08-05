@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package utils
+package utils //nolint:revive // Test utils package name is descriptive
 
 import (
 	"errors"

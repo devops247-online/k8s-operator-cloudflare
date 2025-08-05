@@ -3,10 +3,9 @@ package e2e
 import (
 	"context"
 	"testing"
-	"time"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2" //nolint:revive // ginkgo DSL requires dot import
+	. "github.com/onsi/gomega"    //nolint:revive // Using gomega DSL
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -95,32 +94,6 @@ var _ = AfterSuite(func() {
 // Helper methods for test suite
 func (suite *E2ETestSuite) T() GinkgoTInterface {
 	return GinkgoT()
-}
-
-func (suite *E2ETestSuite) waitForPodReady(ctx context.Context, namespace string, timeout time.Duration) {
-	Eventually(func() bool {
-		podList := &corev1.PodList{}
-		err := suite.k8sClient.List(ctx, podList,
-			client.InNamespace(namespace),
-			client.MatchingLabels(map[string]string{
-				"app.kubernetes.io/name": "cloudflare-dns-operator",
-			}),
-		)
-		if err != nil {
-			return false
-		}
-
-		for _, pod := range podList.Items {
-			if pod.Status.Phase == corev1.PodRunning {
-				for _, condition := range pod.Status.Conditions {
-					if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
-						return true
-					}
-				}
-			}
-		}
-		return false
-	}, timeout, 5*time.Second).Should(BeTrue())
 }
 
 // Simplified port forward - in real implementation would use kubectl port-forward

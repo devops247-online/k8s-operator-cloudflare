@@ -399,7 +399,8 @@ func testInvalidRangeValues(t *testing.T) {
 }
 
 func testInvalidLengthValues(t *testing.T) {
-	longComment := "This is a very long comment that exceeds the maximum allowed length of 100 characters for comments in DNS records, which should be invalid according to the kubebuilder validation rules"
+	longComment := "This is a very long comment that exceeds the maximum allowed length of 100 characters " +
+		"for comments in DNS records, which should be invalid according to the kubebuilder validation rules"
 
 	spec := CloudflareRecordSpec{
 		Zone: "example.com", Type: "A", Name: "test.example.com", Content: "1.2.3.4",
@@ -447,7 +448,10 @@ func TestSecretReference_EdgeCases(t *testing.T) {
 }
 
 func TestCloudflareRecordTypes_SupportedTypes(t *testing.T) {
-	supportedTypes := []string{"A", "AAAA", "CNAME", "MX", "TXT", "SRV", "NS", "PTR", "CAA", "CERT", "DNSKEY", "DS", "NAPTR", "SMIMEA", "SSHFP", "TLSA", "URI"}
+	supportedTypes := []string{
+		"A", "AAAA", "CNAME", "MX", "TXT", "SRV", "NS", "PTR",
+		"CAA", "CERT", "DNSKEY", "DS", "NAPTR", "SMIMEA", "SSHFP", "TLSA", "URI",
+	}
 
 	for _, recordType := range supportedTypes {
 		t.Run("type_"+recordType, func(t *testing.T) {

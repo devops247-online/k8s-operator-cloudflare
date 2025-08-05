@@ -202,11 +202,13 @@ func (c *Config) validateEnvironmentSpecific() error {
 	case ProductionEnv:
 		// Production-specific validations
 		if c.Operator.ReconcileInterval < 30*time.Second {
-			return fmt.Errorf("production environment requires reconcile interval of at least 30s, got: %v", c.Operator.ReconcileInterval)
+			return fmt.Errorf("production environment requires reconcile interval of at least 30s, got: %v",
+				c.Operator.ReconcileInterval)
 		}
 
 		if c.Cloudflare.RateLimitRPS > 50 {
-			return fmt.Errorf("production environment should have rate limit <= 50 RPS for safety, got: %d", c.Cloudflare.RateLimitRPS)
+			return fmt.Errorf("production environment should have rate limit <= 50 RPS for safety, got: %d",
+				c.Cloudflare.RateLimitRPS)
 		}
 
 		// Ensure stable features are enabled in production
@@ -217,13 +219,15 @@ func (c *Config) validateEnvironmentSpecific() error {
 	case "staging":
 		// Staging-specific validations
 		if c.Operator.ReconcileInterval < 10*time.Second {
-			return fmt.Errorf("staging environment requires reconcile interval of at least 10s, got: %v", c.Operator.ReconcileInterval)
+			return fmt.Errorf("staging environment requires reconcile interval of at least 10s, got: %v",
+				c.Operator.ReconcileInterval)
 		}
 
 	case "development":
 		// Development-specific validations are more relaxed
 		if c.Operator.ReconcileInterval < 5*time.Second {
-			return fmt.Errorf("development environment requires reconcile interval of at least 5s, got: %v", c.Operator.ReconcileInterval)
+			return fmt.Errorf("development environment requires reconcile interval of at least 5s, got: %v",
+				c.Operator.ReconcileInterval)
 		}
 
 	case TestEnv:

@@ -1,0 +1,440 @@
+{{- if and .Values.slo.enabled .Values.slo.recordingRules.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ .Values.slo.recordingRules.name | default (printf "%s-slo-recording-rules" (include "cloudflare-dns-operator.fullname" .)) }}
+  {{- if .Values.slo.recordingRules.namespace }}
+  namespace: {{ .Values.slo.recordingRules.namespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+  labels:
+    {{- include "cloudflare-dns-operator.labels" . | nindent 4 }}
+    {{- with .Values.slo.recordingRules.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.slo.recordingRules.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  groups:
+  # SLI Recording Rules
+  - name: {{ .Values.slo.recordingRules.groups.sli.name }}
+    interval: {{ .Values.slo.recordingRules.groups.sli.interval }}
+    rules:
+    # Availability SLI Rules
+    - record: sli:availability:rate5m
+      expr: |
+        (
+          sum(rate(http_requests_total{job="{{ include "cloudflare-dns-operator.fullname" . }}-metrics",code!~"5.."}[5m])) /
+          sum(rate(http_requests_total{job="{{ include "cloudflare-dns-operator.fullname" . }}-metrics"}[5m]))
+        )
+      labels:
+        sli_type: availability
+        window: 5m
+
+    - record: sli:availability:rate30m
+      expr: |
+        (
+          sum(rate(http_requests_total{job="{{ include "cloudflare-dns-operator.fullname" . }}-metrics",code!~"5.."}[30m])) /
+          sum(rate(http_requests_total{job="{{ include "cloudflare-dns-operator.fullname" . }}-metrics"}[30m]))
+        )
+      labels:
+        sli_type: availability
+        window: 30m
+
+    - record: sli:availability:rate1h
+      expr: |
+        (
+          sum(rate(http_requests_total{job="{{ include "cloudflare-dns-operator.fullname" . }}-metrics",code!~"5.."}[1h])) /
+          sum(rate(http_requests_total{job="{{ include "cloudflare-dns-operator.fullname" . }}-metrics"}[1h]))
+        )
+      labels:
+        sli_type: availability
+        window: 1h
+
+    # Success Rate SLI Rules
+    - record: sli:success_rate:rate5m
+      expr: |
+        (
+          sum(rate(http_requests_total{job="{{ include "cloudflare-dns-operator.fullname" . }}-metrics",code=~"2.."}[5m])) /
+          sum(rate(http_requests_total{job="{{ include "cloudflare-dns-operator.fullname" . }}-metrics"}[5m]))
+        )
+      labels:
+        sli_type: success_rate
+        window: 5m
+
+    - record: sli:success_rate:rate30m
+      expr: |
+        (
+          sum(rate(http_requests_total{job="{{ include "cloudflare-dns-operator.fullname" . }}-metrics",code=~"2.."}[30m])) /
+          sum(rate(http_requests_total{job="{{ include "cloudflare-dns-operator.fullname" . }}-metrics"}[30m]))
+        )
+      labels:
+        sli_type: success_rate
+        window: 30m
+
+    - record: sli:success_rate:rate1h
+      expr: |
+        (
+          sum(rate(http_requests_total{job="{{ include "cloudflare-dns-operator.fullname" . }}-metrics",code=~"2.."}[1h])) /
+          sum(rate(http_requests_total{job="{{ include "cloudflare-dns-operator.fullname" . }}-metrics"}[1h]))
+        )
+      labels:
+        sli_type: success_rate
+        window: 1h
+
+    # Latency SLI Rules
+    {{- $sloConfig := include "cloudflare-dns-operator.sloConfig" . | fromYaml }}
+    - record: sli:latency_p95:5m
+      expr: |
+        histogram_quantile(0.95,
+          sum(rate(http_request_duration_seconds_bucket{job="{{ include "cloudflare-dns-operator.fullname" . }}-metrics"}[5m])) by (le)
+        )
+      labels:
+        sli_type: latency_p95
+        window: 5m
+        target: "{{ $sloConfig.targets.latencyP95 }}"
+
+    - record: sli:latency_p95:30m
+      expr: |
+        histogram_quantile(0.95,
+          sum(rate(http_request_duration_seconds_bucket{job="{{ include "cloudflare-dns-operator.fullname" . }}-metrics"}[30m])) by (le)
+        )
+      labels:
+        sli_type: latency_p95
+        window: 30m
+        target: "{{ $sloConfig.targets.latencyP95 }}"
+
+    - record: sli:latency_p95:1h
+      expr: |
+        histogram_quantile(0.95,
+          sum(rate(http_request_duration_seconds_bucket{job="{{ include "cloudflare-dns-operator.fullname" . }}-metrics"}[1h])) by (le)
+        )
+      labels:
+        sli_type: latency_p95
+        window: 1h
+        target: "{{ $sloConfig.targets.latencyP95 }}"
+
+    # Throughput SLI Rules
+    - record: sli:throughput:rate5m
+      expr: sum(rate(http_requests_total{job="{{ include "cloudflare-dns-operator.fullname" . }}-metrics"}[5m]))
+      labels:
+        sli_type: throughput
+        window: 5m
+
+    - record: sli:throughput:rate30m
+      expr: sum(rate(http_requests_total{job="{{ include "cloudflare-dns-operator.fullname" . }}-metrics"}[30m]))
+      labels:
+        sli_type: throughput
+        window: 30m
+
+    - record: sli:throughput:rate1h
+      expr: sum(rate(http_requests_total{job="{{ include "cloudflare-dns-operator.fullname" . }}-metrics"}[1h]))
+      labels:
+        sli_type: throughput
+        window: 1h
+
+  # SLO Burn Rate Recording Rules
+  - name: {{ .Values.slo.recordingRules.groups.burnRate.name }}
+    interval: {{ .Values.slo.recordingRules.groups.burnRate.interval }}
+    rules:
+    # Availability Burn Rates
+    {{- $availabilityTarget := div $sloConfig.targets.availability 100.0 }}
+    - record: slo:burn_rate:availability:5m
+      expr: |
+        (
+          1 - (sli:availability:rate5m / {{ printf "%.4f" $availabilityTarget }})
+        ) / (1 - {{ printf "%.4f" $availabilityTarget }})
+      labels:
+        slo_type: availability
+        window: 5m
+        target: "{{ printf "%.4f" $availabilityTarget }}"
+
+    - record: slo:burn_rate:availability:30m
+      expr: |
+        (
+          1 - (sli:availability:rate30m / {{ printf "%.4f" $availabilityTarget }})
+        ) / (1 - {{ printf "%.4f" $availabilityTarget }})
+      labels:
+        slo_type: availability
+        window: 30m
+        target: "{{ printf "%.4f" $availabilityTarget }}"
+
+    - record: slo:burn_rate:availability:1h
+      expr: |
+        (
+          1 - (sli:availability:rate1h / {{ printf "%.4f" $availabilityTarget }})
+        ) / (1 - {{ printf "%.4f" $availabilityTarget }})
+      labels:
+        slo_type: availability
+        window: 1h
+        target: "{{ printf "%.4f" $availabilityTarget }}"
+
+    - record: slo:burn_rate:availability:6h
+      expr: |
+        (
+          1 - (avg_over_time(sli:availability:rate1h[6h]) / {{ printf "%.4f" $availabilityTarget }})
+        ) / (1 - {{ printf "%.4f" $availabilityTarget }})
+      labels:
+        slo_type: availability
+        window: 6h
+        target: "{{ printf "%.4f" $availabilityTarget }}"
+
+    - record: slo:burn_rate:availability:24h
+      expr: |
+        (
+          1 - (avg_over_time(sli:availability:rate1h[24h]) / {{ printf "%.4f" $availabilityTarget }})
+        ) / (1 - {{ printf "%.4f" $availabilityTarget }})
+      labels:
+        slo_type: availability
+        window: 24h
+        target: "{{ printf "%.4f" $availabilityTarget }}"
+
+    # Success Rate Burn Rates
+    {{- $successRateTarget := div $sloConfig.targets.successRate 100.0 }}
+    - record: slo:burn_rate:success_rate:5m
+      expr: |
+        (
+          1 - (sli:success_rate:rate5m / {{ printf "%.4f" $successRateTarget }})
+        ) / (1 - {{ printf "%.4f" $successRateTarget }})
+      labels:
+        slo_type: success_rate
+        window: 5m
+        target: "{{ printf "%.4f" $successRateTarget }}"
+
+    - record: slo:burn_rate:success_rate:30m
+      expr: |
+        (
+          1 - (sli:success_rate:rate30m / {{ printf "%.4f" $successRateTarget }})
+        ) / (1 - {{ printf "%.4f" $successRateTarget }})
+      labels:
+        slo_type: success_rate
+        window: 30m
+        target: "{{ printf "%.4f" $successRateTarget }}"
+
+    - record: slo:burn_rate:success_rate:1h
+      expr: |
+        (
+          1 - (sli:success_rate:rate1h / {{ printf "%.4f" $successRateTarget }})
+        ) / (1 - {{ printf "%.4f" $successRateTarget }})
+      labels:
+        slo_type: success_rate
+        window: 1h
+        target: "{{ printf "%.4f" $successRateTarget }}"
+
+    - record: slo:burn_rate:success_rate:6h
+      expr: |
+        (
+          1 - (avg_over_time(sli:success_rate:rate1h[6h]) / {{ printf "%.4f" $successRateTarget }})
+        ) / (1 - {{ printf "%.4f" $successRateTarget }})
+      labels:
+        slo_type: success_rate
+        window: 6h
+        target: "{{ printf "%.4f" $successRateTarget }}"
+
+    - record: slo:burn_rate:success_rate:24h
+      expr: |
+        (
+          1 - (avg_over_time(sli:success_rate:rate1h[24h]) / {{ printf "%.4f" $successRateTarget }})
+        ) / (1 - {{ printf "%.4f" $successRateTarget }})
+      labels:
+        slo_type: success_rate
+        window: 24h
+        target: "{{ printf "%.4f" $successRateTarget }}"
+
+  # Error Budget Recording Rules
+  - name: {{ .Values.slo.recordingRules.groups.errorBudget.name }}
+    interval: {{ .Values.slo.recordingRules.groups.errorBudget.interval }}
+    rules:
+    # Error Budget Remaining
+    - record: slo:error_budget_remaining:availability:30d
+      expr: |
+        (
+          1 - (
+            (1 - avg_over_time(sli:availability:rate1h[30d])) / (1 - {{ printf "%.4f" $availabilityTarget }})
+          )
+        )
+      labels:
+        slo_type: availability
+        window: 30d
+        target: "{{ printf "%.4f" $availabilityTarget }}"
+        budget_type: remaining
+
+    - record: slo:error_budget_remaining:success_rate:30d
+      expr: |
+        (
+          1 - (
+            (1 - avg_over_time(sli:success_rate:rate1h[30d])) / (1 - {{ printf "%.4f" $successRateTarget }})
+          )
+        )
+      labels:
+        slo_type: success_rate
+        window: 30d
+        target: "{{ printf "%.4f" $successRateTarget }}"
+        budget_type: remaining
+
+    # Error Budget Burn Rate
+    - record: slo:error_budget_burn_rate:availability:1h
+      expr: |
+        (
+          slo:burn_rate:availability:1h * 24 * 30
+        )
+      labels:
+        slo_type: availability
+        window: 1h
+        budget_type: burn_rate
+
+    - record: slo:error_budget_burn_rate:availability:6h
+      expr: |
+        (
+          slo:burn_rate:availability:6h * 4 * 30
+        )
+      labels:
+        slo_type: availability
+        window: 6h
+        budget_type: burn_rate
+
+    - record: slo:error_budget_burn_rate:success_rate:1h
+      expr: |
+        (
+          slo:burn_rate:success_rate:1h * 24 * 30
+        )
+      labels:
+        slo_type: success_rate
+        window: 1h
+        budget_type: burn_rate
+
+    - record: slo:error_budget_burn_rate:success_rate:6h
+      expr: |
+        (
+          slo:burn_rate:success_rate:6h * 4 * 30
+        )
+      labels:
+        slo_type: success_rate
+        window: 6h
+        budget_type: burn_rate
+
+  # Multi-Window Burn Rate Rules
+  - name: {{ .Values.slo.recordingRules.groups.multiWindow.name }}
+    interval: {{ .Values.slo.recordingRules.groups.multiWindow.interval }}
+    rules:
+    # Page Alert Rules (Fast Burn)
+    {{- if .Values.slo.alerting.pageAlerts.enabled }}
+    - record: slo:multi_window_burn_rate:availability:5m_1h
+      expr: |
+        (
+          slo:burn_rate:availability:5m > (14.4 * 0.25)
+          and
+          slo:burn_rate:availability:1h > (14.4 * 0.25)
+        )
+      labels:
+        slo_type: availability
+        short_window: 5m
+        long_window: 1h
+        severity: page
+        threshold: "14.4"
+
+    - record: slo:multi_window_burn_rate:availability:30m_6h
+      expr: |
+        (
+          slo:burn_rate:availability:30m > (6.0 * 0.25)
+          and
+          slo:burn_rate:availability:6h > (6.0 * 0.25)
+        )
+      labels:
+        slo_type: availability
+        short_window: 30m
+        long_window: 6h
+        severity: page
+        threshold: "6.0"
+
+    - record: slo:multi_window_burn_rate:success_rate:5m_1h
+      expr: |
+        (
+          slo:burn_rate:success_rate:5m > (14.4 * 0.25)
+          and
+          slo:burn_rate:success_rate:1h > (14.4 * 0.25)
+        )
+      labels:
+        slo_type: success_rate
+        short_window: 5m
+        long_window: 1h
+        severity: page
+        threshold: "14.4"
+
+    - record: slo:multi_window_burn_rate:success_rate:30m_6h
+      expr: |
+        (
+          slo:burn_rate:success_rate:30m > (6.0 * 0.25)
+          and
+          slo:burn_rate:success_rate:6h > (6.0 * 0.25)
+        )
+      labels:
+        slo_type: success_rate
+        short_window: 30m
+        long_window: 6h
+        severity: page
+        threshold: "6.0"
+    {{- end }}
+
+    # Ticket Alert Rules (Slow Burn)
+    {{- if .Values.slo.alerting.ticketAlerts.enabled }}
+    - record: slo:multi_window_burn_rate:availability:2h_1d
+      expr: |
+        (
+          avg_over_time(slo:burn_rate:availability:1h[2h]) > (3.0 * 0.1)
+          and
+          slo:burn_rate:availability:24h > (3.0 * 0.1)
+        )
+      labels:
+        slo_type: availability
+        short_window: 2h
+        long_window: 1d
+        severity: ticket
+        threshold: "3.0"
+
+    - record: slo:multi_window_burn_rate:availability:6h_3d
+      expr: |
+        (
+          avg_over_time(slo:burn_rate:availability:1h[6h]) > (1.0 * 0.1)
+          and
+          avg_over_time(slo:burn_rate:availability:24h[3d]) > (1.0 * 0.1)
+        )
+      labels:
+        slo_type: availability
+        short_window: 6h
+        long_window: 3d
+        severity: ticket
+        threshold: "1.0"
+
+    - record: slo:multi_window_burn_rate:success_rate:2h_1d
+      expr: |
+        (
+          avg_over_time(slo:burn_rate:success_rate:1h[2h]) > (3.0 * 0.1)
+          and
+          slo:burn_rate:success_rate:24h > (3.0 * 0.1)
+        )
+      labels:
+        slo_type: success_rate
+        short_window: 2h
+        long_window: 1d
+        severity: ticket
+        threshold: "3.0"
+
+    - record: slo:multi_window_burn_rate:success_rate:6h_3d
+      expr: |
+        (
+          avg_over_time(slo:burn_rate:success_rate:1h[6h]) > (1.0 * 0.1)
+          and
+          avg_over_time(slo:burn_rate:success_rate:24h[3d]) > (1.0 * 0.1)
+        )
+      labels:
+        slo_type: success_rate
+        short_window: 6h
+        long_window: 3d
+        severity: ticket
+        threshold: "1.0"
+    {{- end }}
+{{- end }}

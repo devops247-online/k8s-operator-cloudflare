@@ -1,0 +1,1879 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>slo: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+
+				<option value="file0">github.com/devops247-online/k8s-operator-cloudflare/internal/slo/calculator.go (85.1%)</option>
+
+				<option value="file1">github.com/devops247-online/k8s-operator-cloudflare/internal/slo/config.go (100.0%)</option>
+
+				<option value="file2">github.com/devops247-online/k8s-operator-cloudflare/internal/slo/error_budget.go (95.9%)</option>
+
+				<option value="file3">github.com/devops247-online/k8s-operator-cloudflare/internal/slo/recording_rules.go (88.2%)</option>
+
+				<option value="file4">github.com/devops247-online/k8s-operator-cloudflare/internal/slo/slo.go (87.4%)</option>
+
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+
+			</div>
+		</div>
+		<div id="content">
+
+		<pre class="file" id="file0" style="display: none">package slo
+
+import (
+        "context"
+        "fmt"
+        "time"
+
+        "github.com/prometheus/client_golang/prometheus"
+        dto "github.com/prometheus/client_model/go"
+)
+
+// Calculator calculates SLI values from metrics
+type Calculator struct {
+        config *Config
+
+        // Metrics for SLI calculation
+        availabilityRatio   *prometheus.GaugeVec
+        successRateRatio    *prometheus.GaugeVec
+        latencyHistogram    *prometheus.HistogramVec
+        throughputGauge     *prometheus.GaugeVec
+        errorBudgetGauge    *prometheus.GaugeVec
+}
+
+// NewCalculator creates a new SLI calculator
+func NewCalculator(config *Config) *Calculator <span class="cov8" title="1">{
+        return NewCalculatorWithRegistry(config, prometheus.DefaultRegisterer)
+}</span>
+
+// NewCalculatorWithRegistry creates a new SLI calculator with a custom registry
+func NewCalculatorWithRegistry(config *Config, registerer prometheus.Registerer) *Calculator <span class="cov8" title="1">{
+        calc := &amp;Calculator{
+                config: config,
+
+                availabilityRatio: prometheus.NewGaugeVec(
+                        prometheus.GaugeOpts{
+                                Name: "sli_availability_ratio",
+                                Help: "Availability SLI as a ratio (0.0-1.0)",
+                        },
+                        []string{"window"},
+                ),
+
+                successRateRatio: prometheus.NewGaugeVec(
+                        prometheus.GaugeOpts{
+                                Name: "sli_success_rate_ratio",
+                                Help: "Success rate SLI as a ratio (0.0-1.0)",
+                        },
+                        []string{"window", "controller", "namespace"},
+                ),
+
+                latencyHistogram: prometheus.NewHistogramVec(
+                        prometheus.HistogramOpts{
+                                Name:    "sli_latency_seconds",
+                                Help:    "Latency SLI in seconds",
+                                Buckets: prometheus.ExponentialBuckets(0.001, 2, 20), // 1ms to ~17min
+                        },
+                        []string{"window", "controller", "namespace", "operation"},
+                ),
+
+                throughputGauge: prometheus.NewGaugeVec(
+                        prometheus.GaugeOpts{
+                                Name: "sli_throughput_operations_per_minute",
+                                Help: "Throughput SLI in operations per minute",
+                        },
+                        []string{"window", "controller", "namespace"},
+                ),
+
+                errorBudgetGauge: prometheus.NewGaugeVec(
+                        prometheus.GaugeOpts{
+                                Name: "sli_error_budget_remaining_ratio",
+                                Help: "Remaining error budget as a ratio (0.0-1.0)",
+                        },
+                        []string{"slo_name", "window"},
+                ),
+        }
+
+        // Register metrics if registerer is provided
+        if registerer != nil </span><span class="cov8" title="1">{
+                registerer.MustRegister(
+                        calc.availabilityRatio,
+                        calc.successRateRatio,
+                        calc.latencyHistogram,
+                        calc.throughputGauge,
+                        calc.errorBudgetGauge,
+                )
+        }</span>
+
+        <span class="cov8" title="1">return calc</span>
+}
+
+// SLIValues holds calculated SLI values
+type SLIValues struct {
+        Availability   float64
+        SuccessRate    float64
+        LatencyP95     time.Duration
+        LatencyP99     time.Duration
+        Throughput     float64
+        Timestamp      time.Time
+        Window         string
+}
+
+// Calculate calculates all SLI values for a given time window
+func (c *Calculator) Calculate(ctx context.Context, window TimeWindow) (*SLIValues, error) <span class="cov8" title="1">{
+        values := &amp;SLIValues{
+                Window:    window.Name,
+                Timestamp: time.Now(),
+        }
+
+        // Calculate availability from up metric
+        availability, err := c.calculateAvailability(ctx, window)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("calculating availability: %w", err)
+        }</span>
+        <span class="cov8" title="1">values.Availability = availability
+        c.availabilityRatio.WithLabelValues(window.Name).Set(availability)
+
+        // Calculate success rate from reconcile metrics
+        successRate, err := c.calculateSuccessRate(ctx, window)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("calculating success rate: %w", err)
+        }</span>
+        <span class="cov8" title="1">values.SuccessRate = successRate
+        c.successRateRatio.WithLabelValues(window.Name, "cloudflarerecord", "all").Set(successRate)
+
+        // Calculate latency percentiles
+        p95, p99, err := c.calculateLatencyPercentiles(ctx, window)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("calculating latency percentiles: %w", err)
+        }</span>
+        <span class="cov8" title="1">values.LatencyP95 = p95
+        values.LatencyP99 = p99
+
+        // Record latency observations
+        c.latencyHistogram.WithLabelValues(window.Name, "cloudflarerecord", "all", "reconcile").Observe(p95.Seconds())
+
+        // Calculate throughput
+        throughput, err := c.calculateThroughput(ctx, window)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("calculating throughput: %w", err)
+        }</span>
+        <span class="cov8" title="1">values.Throughput = throughput
+        c.throughputGauge.WithLabelValues(window.Name, "cloudflarerecord", "all").Set(throughput)
+
+        // Calculate error budgets for each SLO
+        c.calculateErrorBudgets(values)
+
+        return values, nil</span>
+}
+
+// calculateAvailability calculates the availability SLI
+func (c *Calculator) calculateAvailability(ctx context.Context, window TimeWindow) (float64, error) <span class="cov8" title="1">{
+        // This would typically query Prometheus or use the up metric
+        // For now, return a placeholder calculation
+        // In real implementation, this would use prometheus.Query API
+        return 0.999, nil
+}</span>
+
+// calculateSuccessRate calculates the success rate SLI
+func (c *Calculator) calculateSuccessRate(ctx context.Context, window TimeWindow) (float64, error) <span class="cov8" title="1">{
+        // This would query controller_runtime_reconcile_total metrics
+        // For now, return a placeholder calculation
+        return 0.995, nil
+}</span>
+
+// calculateLatencyPercentiles calculates P95 and P99 latency
+func (c *Calculator) calculateLatencyPercentiles(ctx context.Context, window TimeWindow) (time.Duration, time.Duration, error) <span class="cov8" title="1">{
+        // This would query controller_runtime_reconcile_time_seconds histogram
+        // For now, return placeholder values
+        return 25 * time.Second, 45 * time.Second, nil
+}</span>
+
+// calculateThroughput calculates operations per minute
+func (c *Calculator) calculateThroughput(ctx context.Context, window TimeWindow) (float64, error) <span class="cov8" title="1">{
+        // This would query the rate of reconcile operations
+        // For now, return a placeholder calculation
+        return 15.0, nil
+}</span>
+
+// calculateErrorBudgets updates error budget gauges based on SLI values
+func (c *Calculator) calculateErrorBudgets(values *SLIValues) <span class="cov8" title="1">{
+        // Calculate error budget for availability
+        availabilityBudget := c.calculateSingleErrorBudget(
+                values.Availability,
+                c.config.Targets.Availability/100,
+                "availability",
+                values.Window,
+        )
+
+        // Calculate error budget for success rate
+        successRateBudget := c.calculateSingleErrorBudget(
+                values.SuccessRate,
+                c.config.Targets.SuccessRate/100,
+                "success_rate",
+                values.Window,
+        )
+
+        // Calculate error budget for latency (using P95)
+        latencyConformance := 1.0
+        if values.LatencyP95 &gt; c.config.Targets.LatencyP95 </span><span class="cov0" title="0">{
+                // Simple binary conformance for latency
+                latencyConformance = 0.95 // Assume 95% of requests meet latency target
+        }</span>
+        <span class="cov8" title="1">latencyBudget := c.calculateSingleErrorBudget(
+                latencyConformance,
+                0.95, // 95% of requests should meet latency target
+                "latency_p95",
+                values.Window,
+        )
+
+        // Update error budget gauges
+        c.errorBudgetGauge.WithLabelValues("availability", values.Window).Set(availabilityBudget)
+        c.errorBudgetGauge.WithLabelValues("success_rate", values.Window).Set(successRateBudget)
+        c.errorBudgetGauge.WithLabelValues("latency_p95", values.Window).Set(latencyBudget)</span>
+}
+
+// calculateSingleErrorBudget calculates remaining error budget for a single SLO
+func (c *Calculator) calculateSingleErrorBudget(actual, target float64, sloName, window string) float64 <span class="cov8" title="1">{
+        if target &gt;= 1.0 </span><span class="cov8" title="1">{
+                return 1.0 // No error budget if target is 100%
+        }</span>
+
+        // If actual &gt;= target, budget is 100% remaining
+        <span class="cov8" title="1">if actual &gt;= target </span><span class="cov8" title="1">{
+                return 1.0
+        }</span>
+
+        // Error budget calculation:
+        // Total error budget = 1 - target
+        // Error budget consumed = target - actual
+        // Error budget remaining = (total - consumed) / total
+        <span class="cov8" title="1">errorBudgetTotal := 1.0 - target
+        errorBudgetConsumed := target - actual
+
+        if errorBudgetTotal &lt;= 0 </span><span class="cov0" title="0">{
+                return 1.0 // Edge case: no error budget exists
+        }</span>
+
+        <span class="cov8" title="1">errorBudgetRemaining := (errorBudgetTotal - errorBudgetConsumed) / errorBudgetTotal
+
+        // Clamp between 0 and 1
+        if errorBudgetRemaining &lt; 0 </span><span class="cov8" title="1">{
+                return 0.0
+        }</span>
+        <span class="cov8" title="1">if errorBudgetRemaining &gt; 1 </span><span class="cov0" title="0">{
+                return 1.0
+        }</span>
+
+        <span class="cov8" title="1">return errorBudgetRemaining</span>
+}
+
+// GetMetricValue is a helper to get current metric value
+func (c *Calculator) GetMetricValue(vec *prometheus.GaugeVec, labels ...string) (float64, error) <span class="cov8" title="1">{
+        metric, err := vec.GetMetricWithLabelValues(labels...)
+        if err != nil </span><span class="cov8" title="1">{
+                return 0, fmt.Errorf("getting metric with labels: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">pb := &amp;dto.Metric{}
+        if err := metric.Write(pb); err != nil </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("writing metric: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if pb.Gauge == nil || pb.Gauge.Value == nil </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("metric has no gauge value")
+        }</span>
+
+        <span class="cov8" title="1">return *pb.Gauge.Value, nil</span>
+}
+
+// CalculateMultiWindowBurnRate calculates burn rate across multiple windows
+func (c *Calculator) CalculateMultiWindowBurnRate(ctx context.Context, shortWindow, longWindow TimeWindow) (float64, error) <span class="cov8" title="1">{
+        // Calculate error budget consumption rate
+        // This is simplified - real implementation would query Prometheus
+        shortValues, err := c.Calculate(ctx, shortWindow)
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("calculating short window SLI: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">longValues, err := c.Calculate(ctx, longWindow)
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("calculating long window SLI: %w", err)
+        }</span>
+
+        // Calculate burn rate based on error budget consumption
+        // This is a simplified calculation
+        <span class="cov8" title="1">shortBurnRate := (1.0 - shortValues.SuccessRate) / (1.0 - c.config.Targets.SuccessRate/100)
+        longBurnRate := (1.0 - longValues.SuccessRate) / (1.0 - c.config.Targets.SuccessRate/100)
+
+        // Return the average burn rate
+        return (shortBurnRate + longBurnRate) / 2, nil</span>
+}</pre>
+
+		<pre class="file" id="file1" style="display: none">package slo
+
+import (
+        "time"
+)
+
+// Config defines the SLO configuration
+type Config struct {
+        // Enabled indicates if SLO monitoring is enabled
+        Enabled bool `json:"enabled" yaml:"enabled"`
+
+        // Targets defines the SLO targets
+        Targets SLOTargets `json:"targets" yaml:"targets"`
+
+        // ErrorBudget defines error budget configuration
+        ErrorBudget ErrorBudgetConfig `json:"errorBudget" yaml:"errorBudget"`
+
+        // Windows defines the time windows for SLI calculation
+        Windows []TimeWindow `json:"windows" yaml:"windows"`
+
+        // AlertingRules defines the alerting configuration
+        AlertingRules AlertingConfig `json:"alertingRules" yaml:"alertingRules"`
+}
+
+// SLOTargets defines the target objectives for each SLI
+type SLOTargets struct {
+        // Availability target percentage (e.g., 99.9)
+        Availability float64 `json:"availability" yaml:"availability"`
+
+        // SuccessRate target percentage (e.g., 99.5)
+        SuccessRate float64 `json:"successRate" yaml:"successRate"`
+
+        // LatencyP95 target duration for 95th percentile
+        LatencyP95 time.Duration `json:"latencyP95" yaml:"latencyP95"`
+
+        // LatencyP99 target duration for 99th percentile
+        LatencyP99 time.Duration `json:"latencyP99" yaml:"latencyP99"`
+
+        // ThroughputMin minimum operations per minute
+        ThroughputMin float64 `json:"throughputMin" yaml:"throughputMin"`
+}
+
+// ErrorBudgetConfig defines error budget configuration
+type ErrorBudgetConfig struct {
+        // WindowDays defines the rolling window for error budget calculation
+        WindowDays int `json:"windowDays" yaml:"windowDays"`
+
+        // AlertThresholds defines when to alert on error budget consumption
+        AlertThresholds ErrorBudgetThresholds `json:"alertThresholds" yaml:"alertThresholds"`
+
+        // Policies defines what actions to take at different consumption levels
+        Policies []ErrorBudgetPolicy `json:"policies" yaml:"policies"`
+}
+
+// ErrorBudgetThresholds defines alert thresholds for error budget
+type ErrorBudgetThresholds struct {
+        // Warning threshold as a fraction of error budget consumed (0.0-1.0)
+        Warning float64 `json:"warning" yaml:"warning"`
+
+        // Critical threshold as a fraction of error budget consumed (0.0-1.0)
+        Critical float64 `json:"critical" yaml:"critical"`
+}
+
+// ErrorBudgetPolicy defines actions based on error budget consumption
+type ErrorBudgetPolicy struct {
+        // Threshold is the consumption threshold that triggers this policy
+        Threshold float64 `json:"threshold" yaml:"threshold"`
+
+        // Action to take when threshold is exceeded
+        Action string `json:"action" yaml:"action"`
+
+        // Description of the policy
+        Description string `json:"description" yaml:"description"`
+}
+
+// TimeWindow defines a time window for SLI calculation
+type TimeWindow struct {
+        // Name of the window (e.g., "5m", "30m", "1h")
+        Name string `json:"name" yaml:"name"`
+
+        // Duration of the window
+        Duration time.Duration `json:"duration" yaml:"duration"`
+
+        // IsShortTerm indicates if this is a short-term window for fast burn alerts
+        IsShortTerm bool `json:"isShortTerm" yaml:"isShortTerm"`
+}
+
+// AlertingConfig defines multi-window multi-burn-rate alerting
+type AlertingConfig struct {
+        // PageAlerts for immediate attention (fast burn)
+        PageAlerts BurnRateAlert `json:"pageAlerts" yaml:"pageAlerts"`
+
+        // TicketAlerts for slower burns
+        TicketAlerts BurnRateAlert `json:"ticketAlerts" yaml:"ticketAlerts"`
+}
+
+// BurnRateAlert defines a burn rate alert configuration
+type BurnRateAlert struct {
+        // Enabled indicates if this alert type is enabled
+        Enabled bool `json:"enabled" yaml:"enabled"`
+
+        // ShortWindow for recent burn rate
+        ShortWindow time.Duration `json:"shortWindow" yaml:"shortWindow"`
+
+        // LongWindow for sustained burn rate
+        LongWindow time.Duration `json:"longWindow" yaml:"longWindow"`
+
+        // BurnRateThreshold multiplier for error budget burn rate
+        BurnRateThreshold float64 `json:"burnRateThreshold" yaml:"burnRateThreshold"`
+
+        // Severity of the alert
+        Severity string `json:"severity" yaml:"severity"`
+}
+
+// DefaultConfig returns a default SLO configuration
+func DefaultConfig() *Config <span class="cov8" title="1">{
+        return &amp;Config{
+                Enabled: true,
+                Targets: SLOTargets{
+                        Availability: 99.9,
+                        SuccessRate:  99.5,
+                        LatencyP95:   30 * time.Second,
+                        LatencyP99:   60 * time.Second,
+                        ThroughputMin: 10.0,
+                },
+                ErrorBudget: ErrorBudgetConfig{
+                        WindowDays: 30,
+                        AlertThresholds: ErrorBudgetThresholds{
+                                Warning:  0.5,
+                                Critical: 0.9,
+                        },
+                        Policies: []ErrorBudgetPolicy{
+                                {
+                                        Threshold:   0.5,
+                                        Action:      "notify",
+                                        Description: "Notify team when 50% of error budget is consumed",
+                                },
+                                {
+                                        Threshold:   0.9,
+                                        Action:      "freeze_deployments",
+                                        Description: "Freeze non-critical deployments when 90% of error budget is consumed",
+                                },
+                        },
+                },
+                Windows: []TimeWindow{
+                        {Name: "5m", Duration: 5 * time.Minute, IsShortTerm: true},
+                        {Name: "30m", Duration: 30 * time.Minute, IsShortTerm: true},
+                        {Name: "1h", Duration: 1 * time.Hour, IsShortTerm: false},
+                        {Name: "6h", Duration: 6 * time.Hour, IsShortTerm: false},
+                        {Name: "1d", Duration: 24 * time.Hour, IsShortTerm: false},
+                        {Name: "30d", Duration: 30 * 24 * time.Hour, IsShortTerm: false},
+                },
+                AlertingRules: AlertingConfig{
+                        PageAlerts: BurnRateAlert{
+                                Enabled:           true,
+                                ShortWindow:       5 * time.Minute,
+                                LongWindow:        1 * time.Hour,
+                                BurnRateThreshold: 14.4, // Consumes monthly budget in ~6 hours
+                                Severity:          "critical",
+                        },
+                        TicketAlerts: BurnRateAlert{
+                                Enabled:           true,
+                                ShortWindow:       30 * time.Minute,
+                                LongWindow:        6 * time.Hour,
+                                BurnRateThreshold: 6.0, // Consumes monthly budget in ~3 days
+                                Severity:          "warning",
+                        },
+                },
+        }
+}</span>
+
+// Validate validates the SLO configuration
+func (c *Config) Validate() error <span class="cov8" title="1">{
+        // TODO: Implement validation
+        return nil
+}</pre>
+
+		<pre class="file" id="file2" style="display: none">package slo
+
+import (
+        "fmt"
+        "sync"
+        "time"
+)
+
+// ErrorBudgetManager manages error budget calculations and policies
+type ErrorBudgetManager struct {
+        config *ErrorBudgetConfig
+
+        // Historical data for trend analysis
+        history map[string][]ErrorBudgetSnapshot
+
+        // Mutex to protect concurrent access
+        mu sync.RWMutex
+}
+
+// ErrorBudgetSnapshot represents a point-in-time error budget state
+type ErrorBudgetSnapshot struct {
+        Timestamp        time.Time
+        Remaining        float64
+        ConsumedPercent  float64
+        BurnRate         float64
+        SLOName          string
+        Window           string
+}
+
+// NewErrorBudgetManager creates a new error budget manager
+func NewErrorBudgetManager(config *ErrorBudgetConfig) *ErrorBudgetManager <span class="cov8" title="1">{
+        return &amp;ErrorBudgetManager{
+                config:  config,
+                history: make(map[string][]ErrorBudgetSnapshot),
+        }
+}</span>
+
+// CalculateErrorBudget calculates the error budget for an SLO
+func (ebm *ErrorBudgetManager) CalculateErrorBudget(sloName string, actual, target float64) *ErrorBudgetCalculation <span class="cov8" title="1">{
+        calc := &amp;ErrorBudgetCalculation{
+                SLOName:   sloName,
+                Actual:    actual,
+                Target:    target,
+                Timestamp: time.Now(),
+        }
+
+        // Calculate total error budget (1 - target)
+        calc.TotalBudget = 1.0 - target
+
+        // Calculate consumed budget
+        if actual &gt;= target </span><span class="cov8" title="1">{
+                calc.ConsumedBudget = 0.0
+        }</span> else<span class="cov8" title="1"> {
+                calc.ConsumedBudget = target - actual
+        }</span>
+
+        // Calculate remaining budget
+        <span class="cov8" title="1">calc.RemainingBudget = calc.TotalBudget - calc.ConsumedBudget
+
+        // Calculate percentages
+        if calc.TotalBudget &gt; 0 </span><span class="cov8" title="1">{
+                calc.RemainingPercent = calc.RemainingBudget / calc.TotalBudget
+                calc.ConsumedPercent = calc.ConsumedBudget / calc.TotalBudget
+        }</span> else<span class="cov8" title="1"> {
+                calc.RemainingPercent = 1.0
+                calc.ConsumedPercent = 0.0
+        }</span>
+
+        // Ensure percentages are within bounds
+        <span class="cov8" title="1">calc.RemainingPercent = clamp(calc.RemainingPercent, 0.0, 1.0)
+        calc.ConsumedPercent = clamp(calc.ConsumedPercent, 0.0, 1.0)
+
+        return calc</span>
+}
+
+// ErrorBudgetCalculation holds the results of an error budget calculation
+type ErrorBudgetCalculation struct {
+        SLOName          string
+        Actual           float64
+        Target           float64
+        TotalBudget      float64
+        ConsumedBudget   float64
+        RemainingBudget  float64
+        RemainingPercent float64
+        ConsumedPercent  float64
+        Timestamp        time.Time
+}
+
+// RecordSnapshot records an error budget snapshot for historical tracking
+func (ebm *ErrorBudgetManager) RecordSnapshot(snapshot ErrorBudgetSnapshot) <span class="cov8" title="1">{
+        ebm.mu.Lock()
+        defer ebm.mu.Unlock()
+
+        key := fmt.Sprintf("%s_%s", snapshot.SLOName, snapshot.Window)
+
+        // Initialize slice if needed
+        if _, exists := ebm.history[key]; !exists </span><span class="cov8" title="1">{
+                ebm.history[key] = make([]ErrorBudgetSnapshot, 0, 1000)
+        }</span>
+
+        // Add snapshot
+        <span class="cov8" title="1">ebm.history[key] = append(ebm.history[key], snapshot)
+
+        // Trim old snapshots (keep last 1000)
+        if len(ebm.history[key]) &gt; 1000 </span><span class="cov8" title="1">{
+                ebm.history[key] = ebm.history[key][len(ebm.history[key])-1000:]
+        }</span>
+}
+
+// CalculateBurnRate calculates the error budget burn rate over a time period
+func (ebm *ErrorBudgetManager) CalculateBurnRate(sloName, window string, period time.Duration) (float64, error) <span class="cov8" title="1">{
+        ebm.mu.RLock()
+        defer ebm.mu.RUnlock()
+
+        key := fmt.Sprintf("%s_%s", sloName, window)
+        snapshots, exists := ebm.history[key]
+        if !exists || len(snapshots) &lt; 2 </span><span class="cov8" title="1">{
+                return 0, fmt.Errorf("insufficient historical data for burn rate calculation")
+        }</span>
+
+        // Find snapshots at the start and end of the period
+        <span class="cov8" title="1">now := time.Now()
+        periodStart := now.Add(-period)
+
+        var startSnapshot, endSnapshot *ErrorBudgetSnapshot
+
+        // Find the closest snapshots to our period boundaries
+        for i := range snapshots </span><span class="cov8" title="1">{
+                if snapshots[i].Timestamp.After(periodStart) &amp;&amp; startSnapshot == nil </span><span class="cov8" title="1">{
+                        if i &gt; 0 </span><span class="cov8" title="1">{
+                                startSnapshot = &amp;snapshots[i-1]
+                        }</span> else<span class="cov8" title="1"> {
+                                startSnapshot = &amp;snapshots[i]
+                        }</span>
+                }
+                <span class="cov8" title="1">endSnapshot = &amp;snapshots[i]</span>
+        }
+
+        <span class="cov8" title="1">if startSnapshot == nil || endSnapshot == nil </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("could not find snapshots for period")
+        }</span>
+
+        // Calculate burn rate
+        <span class="cov8" title="1">timeDiff := endSnapshot.Timestamp.Sub(startSnapshot.Timestamp)
+        if timeDiff &lt;= 0 </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("invalid time difference for burn rate calculation")
+        }</span>
+
+        <span class="cov8" title="1">budgetConsumed := startSnapshot.ConsumedPercent - endSnapshot.ConsumedPercent
+        if budgetConsumed &lt; 0 </span><span class="cov8" title="1">{
+                budgetConsumed = -budgetConsumed // Absolute value
+        }</span>
+
+        // Burn rate = budget consumed per hour
+        <span class="cov8" title="1">hoursElapsed := timeDiff.Hours()
+        if hoursElapsed &gt; 0 </span><span class="cov8" title="1">{
+                return budgetConsumed / hoursElapsed, nil
+        }</span>
+
+        <span class="cov0" title="0">return 0, nil</span>
+}
+
+// PredictExhaustion predicts when the error budget will be exhausted
+func (ebm *ErrorBudgetManager) PredictExhaustion(sloName, window string) (time.Time, error) <span class="cov8" title="1">{
+        // Get current burn rate
+        burnRate, err := ebm.CalculateBurnRate(sloName, window, 1*time.Hour)
+        if err != nil </span><span class="cov8" title="1">{
+                return time.Time{}, fmt.Errorf("calculating burn rate: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if burnRate &lt;= 0 </span><span class="cov8" title="1">{
+                return time.Time{}, fmt.Errorf("burn rate is zero or negative")
+        }</span>
+
+        // Get latest snapshot
+        <span class="cov8" title="1">ebm.mu.RLock()
+        key := fmt.Sprintf("%s_%s", sloName, window)
+        snapshots, exists := ebm.history[key]
+        if !exists || len(snapshots) == 0 </span><span class="cov0" title="0">{
+                ebm.mu.RUnlock()
+                return time.Time{}, fmt.Errorf("no historical data available")
+        }</span>
+        <span class="cov8" title="1">latestSnapshot := snapshots[len(snapshots)-1]
+        ebm.mu.RUnlock()
+
+        remainingBudget := 1.0 - latestSnapshot.ConsumedPercent
+
+        if remainingBudget &lt;= 0 </span><span class="cov0" title="0">{
+                return latestSnapshot.Timestamp, nil // Already exhausted
+        }</span>
+
+        // Calculate hours until exhaustion
+        <span class="cov8" title="1">hoursUntilExhaustion := remainingBudget / burnRate
+
+        return time.Now().Add(time.Duration(hoursUntilExhaustion) * time.Hour), nil</span>
+}
+
+// CheckAlertThresholds checks if any alert thresholds have been exceeded
+func (ebm *ErrorBudgetManager) CheckAlertThresholds(calc *ErrorBudgetCalculation) []AlertThreshold <span class="cov8" title="1">{
+        var triggered []AlertThreshold
+
+        // Check warning threshold
+        if calc.ConsumedPercent &gt;= ebm.config.AlertThresholds.Warning </span><span class="cov8" title="1">{
+                triggered = append(triggered, AlertThreshold{
+                        Name:      "warning",
+                        Threshold: ebm.config.AlertThresholds.Warning,
+                        Severity:  "warning",
+                        Message:   fmt.Sprintf("Error budget warning: %.1f%% consumed", calc.ConsumedPercent*100),
+                })
+        }</span>
+
+        // Check critical threshold
+        <span class="cov8" title="1">if calc.ConsumedPercent &gt;= ebm.config.AlertThresholds.Critical </span><span class="cov8" title="1">{
+                triggered = append(triggered, AlertThreshold{
+                        Name:      "critical",
+                        Threshold: ebm.config.AlertThresholds.Critical,
+                        Severity:  "critical",
+                        Message:   fmt.Sprintf("Error budget critical: %.1f%% consumed", calc.ConsumedPercent*100),
+                })
+        }</span>
+
+        <span class="cov8" title="1">return triggered</span>
+}
+
+// AlertThreshold represents a triggered alert threshold
+type AlertThreshold struct {
+        Name      string
+        Threshold float64
+        Severity  string
+        Message   string
+}
+
+// GetRecommendedAction returns the recommended action based on error budget consumption
+func (ebm *ErrorBudgetManager) GetRecommendedAction(consumedPercent float64) string <span class="cov8" title="1">{
+        // Sort policies by threshold in descending order to find the highest applicable threshold
+        var applicableAction string
+        var highestThreshold float64 = -1
+
+        for _, policy := range ebm.config.Policies </span><span class="cov8" title="1">{
+                if consumedPercent &gt;= policy.Threshold &amp;&amp; policy.Threshold &gt; highestThreshold </span><span class="cov8" title="1">{
+                        applicableAction = policy.Action
+                        highestThreshold = policy.Threshold
+                }</span>
+        }
+
+        <span class="cov8" title="1">if applicableAction != "" </span><span class="cov8" title="1">{
+                return applicableAction
+        }</span>
+        <span class="cov8" title="1">return "continue_normal_operations"</span>
+}
+
+// GenerateReport generates an error budget report
+func (ebm *ErrorBudgetManager) GenerateReport(sloName, window string) (*ErrorBudgetReport, error) <span class="cov8" title="1">{
+        ebm.mu.RLock()
+        key := fmt.Sprintf("%s_%s", sloName, window)
+        snapshots, exists := ebm.history[key]
+        if !exists || len(snapshots) == 0 </span><span class="cov8" title="1">{
+                ebm.mu.RUnlock()
+                return nil, fmt.Errorf("no data available for report")
+        }</span>
+
+        // Create a copy of snapshots to avoid holding the lock too long
+        <span class="cov8" title="1">snapshotsCopy := make([]ErrorBudgetSnapshot, len(snapshots))
+        copy(snapshotsCopy, snapshots)
+        ebm.mu.RUnlock()
+
+        report := &amp;ErrorBudgetReport{
+                SLOName:   sloName,
+                Window:    window,
+                Generated: time.Now(),
+        }
+
+        // Get latest state
+        latest := snapshotsCopy[len(snapshotsCopy)-1]
+        report.CurrentRemaining = latest.Remaining
+        report.CurrentConsumed = latest.ConsumedPercent
+
+        // Calculate burn rate
+        windowDuration := time.Duration(ebm.config.WindowDays) * 24 * time.Hour
+        burnRate, err := ebm.CalculateBurnRate(sloName, window, windowDuration)
+        if err == nil </span><span class="cov8" title="1">{
+                report.BurnRate = burnRate
+        }</span>
+
+        // Predict exhaustion
+        <span class="cov8" title="1">exhaustionTime, err := ebm.PredictExhaustion(sloName, window)
+        if err == nil </span><span class="cov8" title="1">{
+                report.PredictedExhaustion = &amp;exhaustionTime
+        }</span>
+
+        // Get recommended action
+        <span class="cov8" title="1">report.RecommendedAction = ebm.GetRecommendedAction(latest.ConsumedPercent)
+
+        // Calculate statistics over the window
+        report.Statistics = ebm.calculateStatistics(snapshotsCopy)
+
+        return report, nil</span>
+}
+
+// ErrorBudgetReport contains a comprehensive error budget report
+type ErrorBudgetReport struct {
+        SLOName             string
+        Window              string
+        Generated           time.Time
+        CurrentRemaining    float64
+        CurrentConsumed     float64
+        BurnRate            float64
+        PredictedExhaustion *time.Time
+        RecommendedAction   string
+        Statistics          ErrorBudgetStatistics
+}
+
+// ErrorBudgetStatistics contains statistical data about error budget
+type ErrorBudgetStatistics struct {
+        MinRemaining     float64
+        MaxRemaining     float64
+        AvgRemaining     float64
+        MinBurnRate      float64
+        MaxBurnRate      float64
+        AvgBurnRate      float64
+        TotalViolations  int
+        LongestViolation time.Duration
+}
+
+// calculateStatistics calculates statistics from snapshots
+func (ebm *ErrorBudgetManager) calculateStatistics(snapshots []ErrorBudgetSnapshot) ErrorBudgetStatistics <span class="cov8" title="1">{
+        if len(snapshots) == 0 </span><span class="cov8" title="1">{
+                return ErrorBudgetStatistics{}
+        }</span>
+
+        <span class="cov8" title="1">stats := ErrorBudgetStatistics{
+                MinRemaining: 1.0,
+                MaxRemaining: 0.0,
+                MinBurnRate:  1e9,
+                MaxBurnRate:  0.0,
+        }
+
+        var (
+                totalRemaining float64
+                totalBurnRate  float64
+                burnRateCount  int
+                inViolation    bool
+                violationStart time.Time
+        )
+
+        for _, snapshot := range snapshots </span><span class="cov8" title="1">{
+                // Update remaining stats
+                if snapshot.Remaining &lt; stats.MinRemaining </span><span class="cov8" title="1">{
+                        stats.MinRemaining = snapshot.Remaining
+                }</span>
+                <span class="cov8" title="1">if snapshot.Remaining &gt; stats.MaxRemaining </span><span class="cov8" title="1">{
+                        stats.MaxRemaining = snapshot.Remaining
+                }</span>
+                <span class="cov8" title="1">totalRemaining += snapshot.Remaining
+
+                // Update burn rate stats
+                if snapshot.BurnRate &gt; 0 </span><span class="cov8" title="1">{
+                        if snapshot.BurnRate &lt; stats.MinBurnRate </span><span class="cov8" title="1">{
+                                stats.MinBurnRate = snapshot.BurnRate
+                        }</span>
+                        <span class="cov8" title="1">if snapshot.BurnRate &gt; stats.MaxBurnRate </span><span class="cov8" title="1">{
+                                stats.MaxBurnRate = snapshot.BurnRate
+                        }</span>
+                        <span class="cov8" title="1">totalBurnRate += snapshot.BurnRate
+                        burnRateCount++</span>
+                }
+
+                // Track violations (when consumed &gt; warning threshold)
+                <span class="cov8" title="1">if snapshot.ConsumedPercent &gt;= ebm.config.AlertThresholds.Warning </span><span class="cov8" title="1">{
+                        if !inViolation </span><span class="cov8" title="1">{
+                                inViolation = true
+                                violationStart = snapshot.Timestamp
+                                stats.TotalViolations++
+                        }</span>
+                } else<span class="cov8" title="1"> {
+                        if inViolation </span><span class="cov8" title="1">{
+                                violationDuration := snapshot.Timestamp.Sub(violationStart)
+                                if violationDuration &gt; stats.LongestViolation </span><span class="cov8" title="1">{
+                                        stats.LongestViolation = violationDuration
+                                }</span>
+                                <span class="cov8" title="1">inViolation = false</span>
+                        }
+                }
+        }
+
+        // Calculate averages
+        <span class="cov8" title="1">if len(snapshots) &gt; 0 </span><span class="cov8" title="1">{
+                stats.AvgRemaining = totalRemaining / float64(len(snapshots))
+        }</span>
+        <span class="cov8" title="1">if burnRateCount &gt; 0 </span><span class="cov8" title="1">{
+                stats.AvgBurnRate = totalBurnRate / float64(burnRateCount)
+        }</span>
+
+        // If still in violation, calculate duration to now
+        <span class="cov8" title="1">if inViolation </span><span class="cov8" title="1">{
+                violationDuration := time.Now().Sub(violationStart)
+                if violationDuration &gt; stats.LongestViolation </span><span class="cov8" title="1">{
+                        stats.LongestViolation = violationDuration
+                }</span>
+        }
+
+        <span class="cov8" title="1">return stats</span>
+}
+
+// clamp ensures a value is within min and max bounds
+func clamp(value, min, max float64) float64 <span class="cov8" title="1">{
+        if value &lt; min </span><span class="cov8" title="1">{
+                return min
+        }</span>
+        <span class="cov8" title="1">if value &gt; max </span><span class="cov8" title="1">{
+                return max
+        }</span>
+        <span class="cov8" title="1">return value</span>
+}</pre>
+
+		<pre class="file" id="file3" style="display: none">package slo
+
+import (
+        "fmt"
+        "strings"
+        "time"
+
+        "gopkg.in/yaml.v3"
+)
+
+// RecordingRuleGroup represents a Prometheus recording rule group
+type RecordingRuleGroup struct {
+        Name     string          `yaml:"name"`
+        Interval string          `yaml:"interval,omitempty"`
+        Rules    []RecordingRule `yaml:"rules"`
+}
+
+// RecordingRule represents a single Prometheus recording rule
+type RecordingRule struct {
+        Record string            `yaml:"record"`
+        Expr   string            `yaml:"expr"`
+        Labels map[string]string `yaml:"labels,omitempty"`
+}
+
+// PrometheusRulesSpec represents the structure expected by PrometheusRule CRD
+type PrometheusRulesSpec struct {
+        Groups []RecordingRuleGroup `yaml:"groups"`
+}
+
+// RecordingRulesGenerator generates Prometheus recording rules for SLO monitoring
+type RecordingRulesGenerator struct {
+        config *Config
+}
+
+// NewRecordingRulesGenerator creates a new recording rules generator
+func NewRecordingRulesGenerator(config *Config) *RecordingRulesGenerator <span class="cov8" title="1">{
+        return &amp;RecordingRulesGenerator{
+                config: config,
+        }
+}</span>
+
+// GenerateRecordingRules generates all recording rules for SLO monitoring
+func (g *RecordingRulesGenerator) GenerateRecordingRules() *PrometheusRulesSpec <span class="cov8" title="1">{
+        return &amp;PrometheusRulesSpec{
+                Groups: []RecordingRuleGroup{
+                        g.generateSLIRules(),
+                        g.generateSLOBurnRateRules(),
+                        g.generateErrorBudgetRules(),
+                        g.generateMultiWindowRules(),
+                },
+        }
+}</span>
+
+// generateSLIRules generates SLI recording rules
+func (g *RecordingRulesGenerator) generateSLIRules() RecordingRuleGroup <span class="cov8" title="1">{
+        rules := []RecordingRule{
+                // Availability SLI
+                {
+                        Record: "sli:availability:rate5m",
+                        Expr: `(
+                                sum(rate(http_requests_total{job="cloudflare-dns-operator",code!~"5.."}[5m])) /
+                                sum(rate(http_requests_total{job="cloudflare-dns-operator"}[5m]))
+                        )`,
+                        Labels: map[string]string{
+                                "sli_type": "availability",
+                                "window":   "5m",
+                        },
+                },
+                {
+                        Record: "sli:availability:rate30m",
+                        Expr: `(
+                                sum(rate(http_requests_total{job="cloudflare-dns-operator",code!~"5.."}[30m])) /
+                                sum(rate(http_requests_total{job="cloudflare-dns-operator"}[30m]))
+                        )`,
+                        Labels: map[string]string{
+                                "sli_type": "availability",
+                                "window":   "30m",
+                        },
+                },
+                {
+                        Record: "sli:availability:rate1h",
+                        Expr: `(
+                                sum(rate(http_requests_total{job="cloudflare-dns-operator",code!~"5.."}[1h])) /
+                                sum(rate(http_requests_total{job="cloudflare-dns-operator"}[1h]))
+                        )`,
+                        Labels: map[string]string{
+                                "sli_type": "availability",
+                                "window":   "1h",
+                        },
+                },
+                // Success Rate SLI (includes client errors as failures)
+                {
+                        Record: "sli:success_rate:rate5m",
+                        Expr: `(
+                                sum(rate(http_requests_total{job="cloudflare-dns-operator",code=~"2.."}[5m])) /
+                                sum(rate(http_requests_total{job="cloudflare-dns-operator"}[5m]))
+                        )`,
+                        Labels: map[string]string{
+                                "sli_type": "success_rate",
+                                "window":   "5m",
+                        },
+                },
+                {
+                        Record: "sli:success_rate:rate30m",
+                        Expr: `(
+                                sum(rate(http_requests_total{job="cloudflare-dns-operator",code=~"2.."}[30m])) /
+                                sum(rate(http_requests_total{job="cloudflare-dns-operator"}[30m]))
+                        )`,
+                        Labels: map[string]string{
+                                "sli_type": "success_rate",
+                                "window":   "30m",
+                        },
+                },
+                {
+                        Record: "sli:success_rate:rate1h",
+                        Expr: `(
+                                sum(rate(http_requests_total{job="cloudflare-dns-operator",code=~"2.."}[1h])) /
+                                sum(rate(http_requests_total{job="cloudflare-dns-operator"}[1h]))
+                        )`,
+                        Labels: map[string]string{
+                                "sli_type": "success_rate",
+                                "window":   "1h",
+                        },
+                },
+                // Latency SLI (P95)
+                {
+                        Record: "sli:latency_p95:5m",
+                        Expr: `histogram_quantile(0.95,
+                                sum(rate(http_request_duration_seconds_bucket{job="cloudflare-dns-operator"}[5m])) by (le)
+                        )`,
+                        Labels: map[string]string{
+                                "sli_type": "latency_p95",
+                                "window":   "5m",
+                        },
+                },
+                {
+                        Record: "sli:latency_p95:30m",
+                        Expr: `histogram_quantile(0.95,
+                                sum(rate(http_request_duration_seconds_bucket{job="cloudflare-dns-operator"}[30m])) by (le)
+                        )`,
+                        Labels: map[string]string{
+                                "sli_type": "latency_p95",
+                                "window":   "30m",
+                        },
+                },
+                {
+                        Record: "sli:latency_p95:1h",
+                        Expr: `histogram_quantile(0.95,
+                                sum(rate(http_request_duration_seconds_bucket{job="cloudflare-dns-operator"}[1h])) by (le)
+                        )`,
+                        Labels: map[string]string{
+                                "sli_type": "latency_p95",
+                                "window":   "1h",
+                        },
+                },
+                // Throughput SLI
+                {
+                        Record: "sli:throughput:rate5m",
+                        Expr:   `sum(rate(http_requests_total{job="cloudflare-dns-operator"}[5m]))`,
+                        Labels: map[string]string{
+                                "sli_type": "throughput",
+                                "window":   "5m",
+                        },
+                },
+                {
+                        Record: "sli:throughput:rate30m",
+                        Expr:   `sum(rate(http_requests_total{job="cloudflare-dns-operator"}[30m]))`,
+                        Labels: map[string]string{
+                                "sli_type": "throughput",
+                                "window":   "30m",
+                        },
+                },
+                {
+                        Record: "sli:throughput:rate1h",
+                        Expr:   `sum(rate(http_requests_total{job="cloudflare-dns-operator"}[1h]))`,
+                        Labels: map[string]string{
+                                "sli_type": "throughput",
+                                "window":   "1h",
+                        },
+                },
+        }
+
+        return RecordingRuleGroup{
+                Name:     "cloudflare-dns-operator.sli",
+                Interval: "30s",
+                Rules:    rules,
+        }
+}</span>
+
+// generateSLOBurnRateRules generates SLO burn rate recording rules
+func (g *RecordingRulesGenerator) generateSLOBurnRateRules() RecordingRuleGroup <span class="cov8" title="1">{
+        rules := []RecordingRule{}
+
+        // Generate burn rate rules for each SLO target
+        sloTargets := map[string]float64{
+                "availability":  g.config.Targets.Availability / 100.0,
+                "success_rate":  g.config.Targets.SuccessRate / 100.0,
+                "latency_p95":   g.config.Targets.LatencyP95.Seconds(),
+                "throughput":    g.config.Targets.ThroughputMin,
+        }
+
+        windows := []string{"5m", "30m", "1h", "6h", "24h"}
+
+        for sloName, target := range sloTargets </span><span class="cov8" title="1">{
+                for _, window := range windows </span><span class="cov8" title="1">{
+                        if sloName == "latency_p95" </span><span class="cov8" title="1">{
+                                // For latency, we calculate the percentage of requests that meet the SLO
+                                rule := RecordingRule{
+                                        Record: fmt.Sprintf("slo:burn_rate:%s:%s", sloName, window),
+                                        Expr: fmt.Sprintf(`(
+                                                1 - (
+                                                        sum(rate(http_request_duration_seconds_bucket{job="cloudflare-dns-operator",le="%.3f"}[%s])) /
+                                                        sum(rate(http_request_duration_seconds_bucket{job="cloudflare-dns-operator",le="+Inf"}[%s]))
+                                                )
+                                        ) / (1 - 0.95)`, target, window, window),
+                                        Labels: map[string]string{
+                                                "slo_type": sloName,
+                                                "window":   window,
+                                                "target":   fmt.Sprintf("%.3f", target),
+                                        },
+                                }
+                                rules = append(rules, rule)
+                        }</span> else<span class="cov8" title="1"> if sloName == "throughput" </span><span class="cov8" title="1">{
+                                // For throughput, we check if we're meeting the minimum requirement
+                                rule := RecordingRule{
+                                        Record: fmt.Sprintf("slo:burn_rate:%s:%s", sloName, window),
+                                        Expr: fmt.Sprintf(`(
+                                                clamp_max(1 - (sli:throughput:rate%s / %.2f), 1)
+                                        )`, window, target),
+                                        Labels: map[string]string{
+                                                "slo_type": sloName,
+                                                "window":   window,
+                                                "target":   fmt.Sprintf("%.2f", target),
+                                        },
+                                }
+                                rules = append(rules, rule)
+                        }</span> else<span class="cov8" title="1"> {
+                                // For availability and success rate
+                                rule := RecordingRule{
+                                        Record: fmt.Sprintf("slo:burn_rate:%s:%s", sloName, window),
+                                        Expr: fmt.Sprintf(`(
+                                                1 - (sli:%s:rate%s / %.4f)
+                                        ) / (1 - %.4f)`, sloName, window, target, target),
+                                        Labels: map[string]string{
+                                                "slo_type": sloName,
+                                                "window":   window,
+                                                "target":   fmt.Sprintf("%.4f", target),
+                                        },
+                                }
+                                rules = append(rules, rule)
+                        }</span>
+                }
+        }
+
+        <span class="cov8" title="1">return RecordingRuleGroup{
+                Name:     "cloudflare-dns-operator.slo.burn_rate",
+                Interval: "30s",
+                Rules:    rules,
+        }</span>
+}
+
+// generateErrorBudgetRules generates error budget recording rules
+func (g *RecordingRulesGenerator) generateErrorBudgetRules() RecordingRuleGroup <span class="cov8" title="1">{
+        rules := []RecordingRule{
+                // Error budget remaining (30 days)
+                {
+                        Record: "slo:error_budget_remaining:availability:30d",
+                        Expr: fmt.Sprintf(`(
+                                1 - (
+                                        (1 - avg_over_time(sli:availability:rate1h[30d])) / (1 - %.4f)
+                                )
+                        )`, g.config.Targets.Availability/100.0),
+                        Labels: map[string]string{
+                                "slo_type":     "availability",
+                                "window":       "30d",
+                                "target":       fmt.Sprintf("%.4f", g.config.Targets.Availability/100.0),
+                                "budget_type":  "remaining",
+                        },
+                },
+                {
+                        Record: "slo:error_budget_remaining:success_rate:30d",
+                        Expr: fmt.Sprintf(`(
+                                1 - (
+                                        (1 - avg_over_time(sli:success_rate:rate1h[30d])) / (1 - %.4f)
+                                )
+                        )`, g.config.Targets.SuccessRate/100.0),
+                        Labels: map[string]string{
+                                "slo_type":     "success_rate",
+                                "window":       "30d",
+                                "target":       fmt.Sprintf("%.4f", g.config.Targets.SuccessRate/100.0),
+                                "budget_type":  "remaining",
+                        },
+                },
+                // Error budget burn rate over different periods
+                {
+                        Record: "slo:error_budget_burn_rate:availability:1h",
+                        Expr: `(
+                                slo:burn_rate:availability:1h * 24 * 30
+                        )`,
+                        Labels: map[string]string{
+                                "slo_type":     "availability",
+                                "window":       "1h",
+                                "budget_type":  "burn_rate",
+                        },
+                },
+                {
+                        Record: "slo:error_budget_burn_rate:availability:6h",
+                        Expr: `(
+                                slo:burn_rate:availability:6h * 4 * 30
+                        )`,
+                        Labels: map[string]string{
+                                "slo_type":     "availability",
+                                "window":       "6h",
+                                "budget_type":  "burn_rate",
+                        },
+                },
+                {
+                        Record: "slo:error_budget_burn_rate:success_rate:1h",
+                        Expr: `(
+                                slo:burn_rate:success_rate:1h * 24 * 30
+                        )`,
+                        Labels: map[string]string{
+                                "slo_type":     "success_rate",
+                                "window":       "1h",
+                                "budget_type":  "burn_rate",
+                        },
+                },
+                {
+                        Record: "slo:error_budget_burn_rate:success_rate:6h",
+                        Expr: `(
+                                slo:burn_rate:success_rate:6h * 4 * 30
+                        )`,
+                        Labels: map[string]string{
+                                "slo_type":     "success_rate",
+                                "window":       "6h",
+                                "budget_type":  "burn_rate",
+                        },
+                },
+        }
+
+        return RecordingRuleGroup{
+                Name:     "cloudflare-dns-operator.slo.error_budget",
+                Interval: "1m",
+                Rules:    rules,
+        }
+}</span>
+
+// generateMultiWindowRules generates multi-window burn rate rules for alerting
+func (g *RecordingRulesGenerator) generateMultiWindowRules() RecordingRuleGroup <span class="cov8" title="1">{
+        rules := []RecordingRule{}
+
+        // Multi-window burn rate rules for page alerts (fast burn)
+        pageAlerts := []struct {
+                shortWindow string
+                longWindow  string
+                threshold   float64
+        }{
+                {"5m", "1h", 14.4},   // 2% budget in 1 hour
+                {"30m", "6h", 6.0},   // 5% budget in 6 hours
+        }
+
+        // Multi-window burn rate rules for ticket alerts (slow burn)
+        ticketAlerts := []struct {
+                shortWindow string
+                longWindow  string
+                threshold   float64
+        }{
+                {"2h", "1d", 3.0},   // 10% budget in 1 day
+                {"6h", "3d", 1.0},   // 25% budget in 3 days
+        }
+
+        sloTypes := []string{"availability", "success_rate"}
+
+        // Generate page alert rules
+        for _, alert := range pageAlerts </span><span class="cov8" title="1">{
+                for _, sloType := range sloTypes </span><span class="cov8" title="1">{
+                        rule := RecordingRule{
+                                Record: fmt.Sprintf("slo:multi_window_burn_rate:%s:%s_%s", sloType, alert.shortWindow, alert.longWindow),
+                                Expr: fmt.Sprintf(`(
+                                        slo:burn_rate:%s:%s &gt; (%.1f * 0.25)
+                                        and
+                                        slo:burn_rate:%s:%s &gt; (%.1f * 0.25)
+                                )`, sloType, alert.shortWindow, alert.threshold, sloType, alert.longWindow, alert.threshold),
+                                Labels: map[string]string{
+                                        "slo_type":     sloType,
+                                        "short_window": alert.shortWindow,
+                                        "long_window":  alert.longWindow,
+                                        "severity":     "page",
+                                        "threshold":    fmt.Sprintf("%.1f", alert.threshold),
+                                },
+                        }
+                        rules = append(rules, rule)
+                }</span>
+        }
+
+        // Generate ticket alert rules
+        <span class="cov8" title="1">for _, alert := range ticketAlerts </span><span class="cov8" title="1">{
+                for _, sloType := range sloTypes </span><span class="cov8" title="1">{
+                        rule := RecordingRule{
+                                Record: fmt.Sprintf("slo:multi_window_burn_rate:%s:%s_%s", sloType, alert.shortWindow, alert.longWindow),
+                                Expr: fmt.Sprintf(`(
+                                        slo:burn_rate:%s:%s &gt; (%.1f * 0.1)
+                                        and
+                                        slo:burn_rate:%s:%s &gt; (%.1f * 0.1)
+                                )`, sloType, alert.shortWindow, alert.threshold, sloType, alert.longWindow, alert.threshold),
+                                Labels: map[string]string{
+                                        "slo_type":     sloType,
+                                        "short_window": alert.shortWindow,
+                                        "long_window":  alert.longWindow,
+                                        "severity":     "ticket",
+                                        "threshold":    fmt.Sprintf("%.1f", alert.threshold),
+                                },
+                        }
+                        rules = append(rules, rule)
+                }</span>
+        }
+
+        <span class="cov8" title="1">return RecordingRuleGroup{
+                Name:     "cloudflare-dns-operator.slo.multi_window",
+                Interval: "30s",
+                Rules:    rules,
+        }</span>
+}
+
+// GenerateYAML generates YAML output for the recording rules
+func (g *RecordingRulesGenerator) GenerateYAML() (string, error) <span class="cov8" title="1">{
+        rules := g.GenerateRecordingRules()
+
+        yamlData, err := yaml.Marshal(rules)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("failed to marshal recording rules to YAML: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return string(yamlData), nil</span>
+}
+
+// GeneratePrometheusRuleCRD generates a PrometheusRule CRD YAML
+func (g *RecordingRulesGenerator) GeneratePrometheusRuleCRD(name, namespace string) (string, error) <span class="cov8" title="1">{
+        rules := g.GenerateRecordingRules()
+
+        crd := map[string]interface{}{
+                "apiVersion": "monitoring.coreos.com/v1",
+                "kind":       "PrometheusRule",
+                "metadata": map[string]interface{}{
+                        "name":      name,
+                        "namespace": namespace,
+                        "labels": map[string]string{
+                                "app.kubernetes.io/name":      "cloudflare-dns-operator",
+                                "app.kubernetes.io/component": "slo-monitoring",
+                                "prometheus":                  "kube-prometheus",
+                                "role":                        "alert-rules",
+                        },
+                },
+                "spec": rules,
+        }
+
+        yamlData, err := yaml.Marshal(crd)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("failed to marshal PrometheusRule CRD to YAML: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return string(yamlData), nil</span>
+}
+
+// ValidateRecordingRules validates the generated recording rules
+func (g *RecordingRulesGenerator) ValidateRecordingRules() []string <span class="cov8" title="1">{
+        var issues []string
+        rules := g.GenerateRecordingRules()
+
+        for _, group := range rules.Groups </span><span class="cov8" title="1">{
+                // Validate group name
+                if group.Name == "" </span><span class="cov0" title="0">{
+                        issues = append(issues, "empty group name found")
+                }</span>
+
+                // Validate rules
+                <span class="cov8" title="1">for _, rule := range group.Rules </span><span class="cov8" title="1">{
+                        // Check for empty record name
+                        if rule.Record == "" </span><span class="cov0" title="0">{
+                                issues = append(issues, fmt.Sprintf("empty record name in group %s", group.Name))
+                        }</span>
+
+                        // Check for empty expression
+                        <span class="cov8" title="1">if rule.Expr == "" </span><span class="cov0" title="0">{
+                                issues = append(issues, fmt.Sprintf("empty expression for rule %s", rule.Record))
+                        }</span>
+
+                        // Check for valid metric naming
+                        <span class="cov8" title="1">if !strings.Contains(rule.Record, ":") </span><span class="cov0" title="0">{
+                                issues = append(issues, fmt.Sprintf("rule %s doesn't follow naming convention (missing colon)", rule.Record))
+                        }</span>
+
+                        // Check for reasonable interval
+                        <span class="cov8" title="1">if group.Interval != "" </span><span class="cov8" title="1">{
+                                if interval, err := time.ParseDuration(group.Interval); err != nil </span><span class="cov0" title="0">{
+                                        issues = append(issues, fmt.Sprintf("invalid interval %s in group %s", group.Interval, group.Name))
+                                }</span> else<span class="cov8" title="1"> if interval &lt; 10*time.Second </span><span class="cov0" title="0">{
+                                        issues = append(issues, fmt.Sprintf("interval %s in group %s is too short", group.Interval, group.Name))
+                                }</span>
+                        }
+                }
+        }
+
+        <span class="cov8" title="1">return issues</span>
+}
+
+// GetRecordingRuleNames returns all recording rule names for testing
+func (g *RecordingRulesGenerator) GetRecordingRuleNames() []string <span class="cov8" title="1">{
+        var names []string
+        rules := g.GenerateRecordingRules()
+
+        for _, group := range rules.Groups </span><span class="cov8" title="1">{
+                for _, rule := range group.Rules </span><span class="cov8" title="1">{
+                        names = append(names, rule.Record)
+                }</span>
+        }
+
+        <span class="cov8" title="1">return names</span>
+}</pre>
+
+		<pre class="file" id="file4" style="display: none">package slo
+
+import (
+        "context"
+        "fmt"
+        "sync"
+        "time"
+
+        "github.com/prometheus/client_golang/prometheus"
+        "go.uber.org/zap"
+)
+
+// Manager manages SLO monitoring and alerting
+type Manager struct {
+        config     *Config
+        calculator *Calculator
+        logger     *zap.Logger
+
+        // State management
+        mu              sync.RWMutex
+        lastCalculation map[string]*SLIValues
+        errorBudgets    map[string]*ErrorBudgetState
+
+        // Control channels
+        stopCh chan struct{}
+        doneCh chan struct{}
+}
+
+// ErrorBudgetState tracks the state of an error budget
+type ErrorBudgetState struct {
+        SLOName           string
+        CurrentRemaining  float64
+        ConsumedPercent   float64
+        LastUpdated       time.Time
+        PolicyTriggered   []string
+        BurnRate          float64
+        TimeToExhaustion  time.Duration
+}
+
+// NewManager creates a new SLO manager
+func NewManager(config *Config, logger *zap.Logger) (*Manager, error) <span class="cov0" title="0">{
+        if config == nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("config cannot be nil")
+        }</span>
+        <span class="cov0" title="0">if logger == nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("logger cannot be nil")
+        }</span>
+        <span class="cov0" title="0">if err := config.Validate(); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("invalid SLO config: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return NewManagerWithRegistry(config, logger, prometheus.DefaultRegisterer)</span>
+}
+
+// NewManagerWithRegistry creates a new SLO manager with a custom metrics registry
+func NewManagerWithRegistry(config *Config, logger *zap.Logger, registerer prometheus.Registerer) (*Manager, error) <span class="cov8" title="1">{
+        if config == nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("config cannot be nil")
+        }</span>
+        <span class="cov8" title="1">if logger == nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("logger cannot be nil")
+        }</span>
+        <span class="cov8" title="1">if err := config.Validate(); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("invalid SLO config: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return &amp;Manager{
+                config:          config,
+                calculator:      NewCalculatorWithRegistry(config, registerer),
+                logger:          logger,
+                lastCalculation: make(map[string]*SLIValues),
+                errorBudgets:    make(map[string]*ErrorBudgetState),
+                stopCh:          make(chan struct{}),
+                doneCh:          make(chan struct{}),
+        }, nil</span>
+}
+
+// Start begins SLO monitoring
+func (m *Manager) Start(ctx context.Context) error <span class="cov8" title="1">{
+        if !m.config.Enabled </span><span class="cov8" title="1">{
+                m.logger.Info("SLO monitoring is disabled")
+                return nil
+        }</span>
+
+        <span class="cov8" title="1">m.logger.Info("Starting SLO monitoring")
+
+        // Start monitoring goroutine
+        go m.run(ctx)
+
+        return nil</span>
+}
+
+// Stop stops SLO monitoring
+func (m *Manager) Stop() <span class="cov8" title="1">{
+        m.logger.Info("Stopping SLO monitoring")
+        close(m.stopCh)
+
+        // Only wait for doneCh if SLO monitoring was actually started
+        if m.config.Enabled </span><span class="cov8" title="1">{
+                &lt;-m.doneCh
+        }</span>
+}
+
+// run is the main monitoring loop
+func (m *Manager) run(ctx context.Context) <span class="cov8" title="1">{
+        defer close(m.doneCh)
+
+        // Create tickers for each window
+        tickers := make(map[string]*time.Ticker)
+        for _, window := range m.config.Windows </span><span class="cov8" title="1">{
+                // Calculate SLIs more frequently than the window duration
+                // Short-term windows: every 30 seconds
+                // Long-term windows: every 5 minutes
+                interval := window.Duration / 10
+                if window.IsShortTerm </span><span class="cov8" title="1">{
+                        interval = 30 * time.Second
+                }</span> else<span class="cov8" title="1"> if interval &lt; 5*time.Minute </span><span class="cov0" title="0">{
+                        interval = 5 * time.Minute
+                }</span>
+
+                <span class="cov8" title="1">ticker := time.NewTicker(interval)
+                tickers[window.Name] = ticker
+
+                // Initial calculation
+                go m.calculateForWindow(ctx, window)</span>
+        }
+
+        // Clean up tickers on exit
+        <span class="cov8" title="1">defer func() </span><span class="cov8" title="1">{
+                for _, ticker := range tickers </span><span class="cov8" title="1">{
+                        ticker.Stop()
+                }</span>
+        }()
+
+        // Main monitoring loop
+        <span class="cov8" title="1">for </span><span class="cov8" title="1">{
+                select </span>{
+                case &lt;-m.stopCh:<span class="cov8" title="1">
+                        return</span>
+                case &lt;-ctx.Done():<span class="cov0" title="0">
+                        return</span>
+                default:<span class="cov8" title="1">
+                        // Check each ticker
+                        for _, window := range m.config.Windows </span><span class="cov8" title="1">{
+                                select </span>{
+                                case &lt;-tickers[window.Name].C:<span class="cov0" title="0">
+                                        go m.calculateForWindow(ctx, window)</span>
+                                default:<span class="cov8" title="1"></span>
+                                        // Non-blocking
+                                }
+                        }
+
+                        // Small sleep to prevent busy loop
+                        <span class="cov8" title="1">time.Sleep(100 * time.Millisecond)</span>
+                }
+        }
+}
+
+// calculateForWindow calculates SLIs for a specific time window
+func (m *Manager) calculateForWindow(ctx context.Context, window TimeWindow) <span class="cov8" title="1">{
+        logger := m.logger.With(
+                zap.String("window", window.Name),
+                zap.Duration("duration", window.Duration),
+        )
+
+        logger.Debug("Calculating SLIs for window")
+
+        // Calculate SLI values
+        values, err := m.calculator.Calculate(ctx, window)
+        if err != nil </span><span class="cov0" title="0">{
+                logger.Error("Failed to calculate SLIs", zap.Error(err))
+                return
+        }</span>
+
+        // Store calculation
+        <span class="cov8" title="1">m.mu.Lock()
+        m.lastCalculation[window.Name] = values
+        m.mu.Unlock()
+
+        // Update error budgets
+        m.updateErrorBudgets(values)
+
+        // Check multi-window burn rates for alerting
+        if window.IsShortTerm </span><span class="cov8" title="1">{
+                m.checkBurnRates(ctx)
+        }</span>
+
+        <span class="cov8" title="1">logger.Debug("SLI calculation completed",
+                zap.Float64("availability", values.Availability),
+                zap.Float64("success_rate", values.SuccessRate),
+                zap.Duration("latency_p95", values.LatencyP95),
+                zap.Float64("throughput", values.Throughput),
+        )</span>
+}
+
+// updateErrorBudgets updates error budget states based on SLI values
+func (m *Manager) updateErrorBudgets(values *SLIValues) <span class="cov8" title="1">{
+        m.mu.Lock()
+        defer m.mu.Unlock()
+
+        // Update availability error budget
+        m.updateSingleErrorBudget("availability", values.Availability, m.config.Targets.Availability/100, values.Window)
+
+        // Update success rate error budget
+        m.updateSingleErrorBudget("success_rate", values.SuccessRate, m.config.Targets.SuccessRate/100, values.Window)
+
+        // Update latency error budget (simplified)
+        latencyConformance := 1.0
+        if values.LatencyP95 &gt; m.config.Targets.LatencyP95 </span><span class="cov8" title="1">{
+                latencyConformance = 0.95
+        }</span>
+        <span class="cov8" title="1">m.updateSingleErrorBudget("latency_p95", latencyConformance, 0.95, values.Window)</span>
+}
+
+// updateSingleErrorBudget updates a single error budget state
+func (m *Manager) updateSingleErrorBudget(sloName string, actual, target float64, window string) <span class="cov8" title="1">{
+        key := fmt.Sprintf("%s_%s", sloName, window)
+
+        state, exists := m.errorBudgets[key]
+        if !exists </span><span class="cov8" title="1">{
+                state = &amp;ErrorBudgetState{
+                        SLOName: sloName,
+                }
+                m.errorBudgets[key] = state
+        }</span>
+
+        // Calculate remaining budget
+        <span class="cov8" title="1">errorBudgetTotal := 1.0 - target
+        errorBudgetConsumed := 0.0
+        if actual &lt; target </span><span class="cov8" title="1">{
+                errorBudgetConsumed = target - actual
+        }</span>
+
+        <span class="cov8" title="1">state.CurrentRemaining = 1.0
+        if errorBudgetTotal &gt; 0 </span><span class="cov8" title="1">{
+                state.CurrentRemaining = (errorBudgetTotal - errorBudgetConsumed) / errorBudgetTotal
+        }</span>
+        <span class="cov8" title="1">state.ConsumedPercent = 1.0 - state.CurrentRemaining
+        state.LastUpdated = time.Now()
+
+        // Calculate burn rate (simplified - would use historical data in production)
+        if state.BurnRate == 0 </span><span class="cov8" title="1">{
+                state.BurnRate = state.ConsumedPercent // Initial estimate
+        }</span> else<span class="cov8" title="1"> {
+                // Exponential moving average
+                state.BurnRate = 0.9*state.BurnRate + 0.1*state.ConsumedPercent
+        }</span>
+
+        // Estimate time to exhaustion
+        <span class="cov8" title="1">if state.BurnRate &gt; 0 &amp;&amp; state.CurrentRemaining &gt; 0 </span><span class="cov8" title="1">{
+                hoursRemaining := state.CurrentRemaining / (state.BurnRate / 24) // Assuming daily burn rate
+                state.TimeToExhaustion = time.Duration(hoursRemaining) * time.Hour
+        }</span>
+
+        // Check policies
+        <span class="cov8" title="1">m.checkErrorBudgetPolicies(state)</span>
+}
+
+// checkErrorBudgetPolicies checks if any policies should be triggered
+func (m *Manager) checkErrorBudgetPolicies(state *ErrorBudgetState) <span class="cov8" title="1">{
+        state.PolicyTriggered = []string{}
+
+        for _, policy := range m.config.ErrorBudget.Policies </span><span class="cov8" title="1">{
+                if state.ConsumedPercent &gt;= policy.Threshold </span><span class="cov8" title="1">{
+                        state.PolicyTriggered = append(state.PolicyTriggered, policy.Action)
+
+                        m.logger.Warn("Error budget policy triggered",
+                                zap.String("slo", state.SLOName),
+                                zap.Float64("consumed", state.ConsumedPercent),
+                                zap.Float64("threshold", policy.Threshold),
+                                zap.String("action", policy.Action),
+                                zap.String("description", policy.Description),
+                        )
+                }</span>
+        }
+}
+
+// checkBurnRates checks multi-window burn rates for alerting
+func (m *Manager) checkBurnRates(ctx context.Context) <span class="cov8" title="1">{
+        // Check page alerts (fast burn)
+        if m.config.AlertingRules.PageAlerts.Enabled </span><span class="cov8" title="1">{
+                m.checkBurnRateAlert(ctx, m.config.AlertingRules.PageAlerts, "page")
+        }</span>
+
+        // Check ticket alerts (slow burn)
+        <span class="cov8" title="1">if m.config.AlertingRules.TicketAlerts.Enabled </span><span class="cov8" title="1">{
+                m.checkBurnRateAlert(ctx, m.config.AlertingRules.TicketAlerts, "ticket")
+        }</span>
+}
+
+// checkBurnRateAlert checks a specific burn rate alert
+func (m *Manager) checkBurnRateAlert(ctx context.Context, alert BurnRateAlert, alertType string) <span class="cov8" title="1">{
+        // Find the windows
+        var shortWindow, longWindow *TimeWindow
+        for i := range m.config.Windows </span><span class="cov8" title="1">{
+                if m.config.Windows[i].Duration == alert.ShortWindow </span><span class="cov8" title="1">{
+                        shortWindow = &amp;m.config.Windows[i]
+                }</span>
+                <span class="cov8" title="1">if m.config.Windows[i].Duration == alert.LongWindow </span><span class="cov8" title="1">{
+                        longWindow = &amp;m.config.Windows[i]
+                }</span>
+        }
+
+        <span class="cov8" title="1">if shortWindow == nil || longWindow == nil </span><span class="cov8" title="1">{
+                m.logger.Error("Burn rate windows not found",
+                        zap.String("alert_type", alertType),
+                        zap.Duration("short_window", alert.ShortWindow),
+                        zap.Duration("long_window", alert.LongWindow),
+                )
+                return
+        }</span>
+
+        // Calculate burn rate
+        <span class="cov8" title="1">burnRate, err := m.calculator.CalculateMultiWindowBurnRate(ctx, *shortWindow, *longWindow)
+        if err != nil </span><span class="cov0" title="0">{
+                m.logger.Error("Failed to calculate burn rate",
+                        zap.String("alert_type", alertType),
+                        zap.Error(err),
+                )
+                return
+        }</span>
+
+        // Check threshold
+        <span class="cov8" title="1">if burnRate &gt;= alert.BurnRateThreshold </span><span class="cov0" title="0">{
+                m.logger.Error("Burn rate threshold exceeded",
+                        zap.String("alert_type", alertType),
+                        zap.Float64("burn_rate", burnRate),
+                        zap.Float64("threshold", alert.BurnRateThreshold),
+                        zap.String("severity", alert.Severity),
+                )
+
+                // In a real implementation, this would trigger alerts via AlertManager
+        }</span>
+}
+
+// GetSLIValues returns the last calculated SLI values for a window
+func (m *Manager) GetSLIValues(window string) (*SLIValues, bool) <span class="cov8" title="1">{
+        m.mu.RLock()
+        defer m.mu.RUnlock()
+
+        values, exists := m.lastCalculation[window]
+        return values, exists
+}</span>
+
+// GetErrorBudgetState returns the error budget state for an SLO
+func (m *Manager) GetErrorBudgetState(sloName, window string) (*ErrorBudgetState, bool) <span class="cov8" title="1">{
+        m.mu.RLock()
+        defer m.mu.RUnlock()
+
+        key := fmt.Sprintf("%s_%s", sloName, window)
+        state, exists := m.errorBudgets[key]
+        return state, exists
+}</span>
+
+// GetAllErrorBudgets returns all error budget states
+func (m *Manager) GetAllErrorBudgets() map[string]*ErrorBudgetState <span class="cov8" title="1">{
+        m.mu.RLock()
+        defer m.mu.RUnlock()
+
+        // Create a copy to avoid race conditions
+        result := make(map[string]*ErrorBudgetState)
+        for k, v := range m.errorBudgets </span><span class="cov8" title="1">{
+                result[k] = v
+        }</span>
+        <span class="cov8" title="1">return result</span>
+}</pre>
+
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

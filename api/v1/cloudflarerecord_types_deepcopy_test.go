@@ -113,7 +113,7 @@ func TestCloudflareRecordDeepCopy(t *testing.T) {
 	})
 
 	t.Run("DeepCopy with nil record", func(t *testing.T) {
-		var original *CloudflareRecord = nil
+		var original *CloudflareRecord
 		copied := original.DeepCopy()
 		assert.Nil(t, copied, "DeepCopy of nil should return nil")
 	})
@@ -161,7 +161,7 @@ func TestCloudflareRecordSpecDeepCopy(t *testing.T) {
 	})
 
 	t.Run("DeepCopy with nil spec", func(t *testing.T) {
-		var original *CloudflareRecordSpec = nil
+		var original *CloudflareRecordSpec
 		copied := original.DeepCopy()
 		assert.Nil(t, copied, "DeepCopy of nil spec should return nil")
 	})
@@ -224,7 +224,7 @@ func TestCloudflareRecordStatusDeepCopy(t *testing.T) {
 	})
 
 	t.Run("DeepCopy with nil status", func(t *testing.T) {
-		var original *CloudflareRecordStatus = nil
+		var original *CloudflareRecordStatus
 		copied := original.DeepCopy()
 		assert.Nil(t, copied, "DeepCopy of nil status should return nil")
 	})

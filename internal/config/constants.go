@@ -1,3 +1,4 @@
+// Package config provides configuration constants and types for the Cloudflare DNS Operator.
 package config
 
 // Environment constants

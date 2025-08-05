@@ -15,6 +15,13 @@ repos:
       - id: mixed-line-ending
         args: ['--fix=lf']
 
+  # YAML linting
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        args: [-c=.yamllint.yml]
+
   # ESLint for JavaScript linting
   - repo: local
     hooks:
@@ -46,14 +53,28 @@ repos:
         language: system
         files: \.go$
         pass_filenames: false
-        args: ['-c', 'if command -v golangci-lint >/dev/null 2>&1; then echo "Running golangci-lint..." && golangci-lint run --timeout=10m --no-config --enable-only=errcheck,unparam,govet,staticcheck,ineffassign,misspell; else echo "⚠️  golangci-lint not installed. Install with: brew install golangci-lint"; fi']
+        args:
+          - '-c'
+          - 'if command -v golangci-lint >/dev/null 2>&1; then
+               echo "Running golangci-lint..." &&
+               golangci-lint run --timeout=10m --no-config
+               --enable-only=errcheck,unparam,govet,staticcheck,ineffassign,misspell;
+             else
+               echo "⚠️  golangci-lint not installed. Install: brew install golangci-lint";
+             fi'
       - id: gosec
         name: Go security scan
         entry: bash
         language: system
         files: \.go$
         pass_filenames: false
-        args: ['-c', 'if command -v gosec >/dev/null 2>&1; then echo "Running gosec security scan..." && gosec -fmt=text ./...; else echo "⚠️  gosec not installed. Install with: curl -sfL https://raw.githubusercontent.com/securecodewarrior/gosec/master/install.sh | sh -s"; fi']
+        args:
+          - '-c'
+          - 'if command -v gosec >/dev/null 2>&1; then
+               echo "Running gosec security scan..." && gosec -fmt=text ./...;
+             else
+               echo "⚠️  gosec not installed. Install from securecodewarrior/gosec";
+             fi'
 
   # Trivy security scanner
   - repo: local
@@ -65,7 +86,14 @@ repos:
         language: system
         pass_filenames: false
         files: \.(go|yaml|yml|dockerfile)$
-        args: ['-c', 'if command -v trivy >/dev/null 2>&1; then echo "Running Trivy security scan..." && trivy fs --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --exit-code 0 .; else echo "⚠️  Trivy not installed. Install from: https://github.com/aquasecurity/trivy"; fi']
+        args:
+          - '-c'
+          - 'if command -v trivy >/dev/null 2>&1; then
+               echo "Running Trivy security scan..." &&
+               trivy fs --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --exit-code 0 .;
+             else
+               echo "⚠️  Trivy not installed. Install from aquasecurity/trivy";
+             fi'
 
   # Docker security scanning (disabled for now - can be enabled later)
   # - repo: local

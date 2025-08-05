@@ -79,7 +79,13 @@ data:
       "logging": {{ include "cloudflare-dns-operator.loggingConfig" . | fromYaml | toJson }},
       {{- end }}
       {{- if .Values.tracing.enabled }}
-      "tracing": {{ include "cloudflare-dns-operator.tracingConfig" . | fromYaml | toJson }}
+      "tracing": {{ include "cloudflare-dns-operator.tracingConfig" . | fromYaml | toJson }},
+      {{- end }}
+      {{- if .Values.slo.enabled }}
+      "slo": {{ include "cloudflare-dns-operator.sloConfig" . | fromYaml | toJson }},
+      {{- end }}
+      {{- if .Values.reliability.enabled }}
+      "reliability": {{ include "cloudflare-dns-operator.reliabilityConfig" . | fromYaml | toJson }}
       {{- end }}
     }
   {{- else }}
@@ -144,6 +150,14 @@ data:
     {{- if .Values.tracing.enabled }}
     tracing:
 {{ include "cloudflare-dns-operator.tracingConfig" . | indent 6 }}
+    {{- end }}
+    {{- if .Values.slo.enabled }}
+    slo:
+{{ include "cloudflare-dns-operator.sloConfig" . | indent 6 }}
+    {{- end }}
+    {{- if .Values.reliability.enabled }}
+    reliability:
+{{ include "cloudflare-dns-operator.reliabilityConfig" . | indent 6 }}
     {{- end }}
   {{- end }}
   {{- else }}

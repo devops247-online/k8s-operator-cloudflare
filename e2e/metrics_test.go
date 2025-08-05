@@ -5,11 +5,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2" //nolint:revive // Using ginkgo DSL
+	. "github.com/onsi/gomega"    //nolint:revive // Using gomega DSL
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -149,37 +148,19 @@ func (suite *E2ETestSuite) assertMetricExists(metricsContent, metricName string)
 	Expect(metricsContent).To(ContainSubstring(metricName), "Metric %s should exist in metrics output", metricName)
 }
 
-func (suite *E2ETestSuite) assertMetricHasValue(metricsContent, metricName, labelValue string) {
-	// Look for metric name and verify it has some value
-	lines := strings.Split(metricsContent, "\n")
-	found := false
-
-	for _, line := range lines {
-		if strings.Contains(line, metricName) && strings.Contains(line, labelValue) && !strings.HasPrefix(line, "#") {
-			// This is a metric line (not a comment)
-			parts := strings.Fields(line)
-			if len(parts) >= 2 {
-				// Check if the value is not zero (indicating activity)
-				found = true
-				break
+func (suite *E2ETestSuite) WaitForOperatorReady(_ context.Context) error {
+	return wait.PollUntilContextTimeout(
+		context.Background(), 5*time.Second, 300*time.Second, true,
+		func(ctx context.Context) (bool, error) {
+			deployment := &appsv1.Deployment{}
+			err := suite.k8sClient.Get(ctx, types.NamespacedName{
+				Name:      "cloudflare-dns-operator",
+				Namespace: suite.operatorNamespace,
+			}, deployment)
+			if err != nil {
+				return false, nil
 			}
-		}
-	}
 
-	Expect(found).To(BeTrue(), "Metric %s with label %s should have a value", metricName, labelValue)
-}
-
-func (suite *E2ETestSuite) WaitForOperatorReady(ctx context.Context) error {
-	return wait.PollUntilContextTimeout(context.Background(), 5*time.Second, 300*time.Second, true, func(ctx context.Context) (bool, error) {
-		deployment := &appsv1.Deployment{}
-		err := suite.k8sClient.Get(ctx, types.NamespacedName{
-			Name:      "cloudflare-dns-operator",
-			Namespace: suite.operatorNamespace,
-		}, deployment)
-		if err != nil {
-			return false, nil
-		}
-
-		return deployment.Status.ReadyReplicas > 0, nil
-	})
+			return deployment.Status.ReadyReplicas > 0, nil
+		})
 }

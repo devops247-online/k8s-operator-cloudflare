@@ -68,7 +68,7 @@ func TestFeatureFlagManager_IsEnabled(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			manager := NewFeatureFlagManager(tt.flags)
 			result := manager.IsEnabled(tt.flagName)
 			assert.Equal(t, tt.expected, result)
@@ -77,7 +77,7 @@ func TestFeatureFlagManager_IsEnabled(t *testing.T) {
 }
 
 func TestFeatureFlagManager_SetFlag(t *testing.T) {
-	t.Run("sets custom flag", func(t *testing.T) {
+	t.Run("sets custom flag", func(_ *testing.T) {
 		flags := &FeatureFlags{
 			CustomFlags: make(map[string]bool),
 		}
@@ -90,7 +90,7 @@ func TestFeatureFlagManager_SetFlag(t *testing.T) {
 		assert.False(t, manager.IsEnabled("newFeature"))
 	})
 
-	t.Run("initializes custom flags if nil", func(t *testing.T) {
+	t.Run("initializes custom flags if nil", func(_ *testing.T) {
 		flags := &FeatureFlags{}
 		manager := NewFeatureFlagManager(flags)
 
@@ -99,7 +99,7 @@ func TestFeatureFlagManager_SetFlag(t *testing.T) {
 		assert.NotNil(t, flags.CustomFlags)
 	})
 
-	t.Run("handles nil flags gracefully", func(t *testing.T) {
+	t.Run("handles nil flags gracefully", func(_ *testing.T) {
 		manager := NewFeatureFlagManager(nil)
 
 		// Should not panic
@@ -111,7 +111,7 @@ func TestFeatureFlagManager_SetFlag(t *testing.T) {
 }
 
 func TestFeatureFlagManager_GetAllFlags(t *testing.T) {
-	t.Run("returns all standard and custom flags", func(t *testing.T) {
+	t.Run("returns all standard and custom flags", func(_ *testing.T) {
 		flags := &FeatureFlags{
 			EnableWebhooks:       true,
 			EnableMetrics:        false,
@@ -138,7 +138,7 @@ func TestFeatureFlagManager_GetAllFlags(t *testing.T) {
 		assert.Equal(t, expected, allFlags)
 	})
 
-	t.Run("handles nil custom flags", func(t *testing.T) {
+	t.Run("handles nil custom flags", func(_ *testing.T) {
 		flags := &FeatureFlags{
 			EnableWebhooks: true,
 			EnableMetrics:  false,
@@ -158,7 +158,7 @@ func TestFeatureFlagManager_GetAllFlags(t *testing.T) {
 		assert.Equal(t, expected, allFlags)
 	})
 
-	t.Run("handles nil flags", func(t *testing.T) {
+	t.Run("handles nil flags", func(_ *testing.T) {
 		manager := NewFeatureFlagManager(nil)
 
 		allFlags := manager.GetAllFlags()
@@ -175,7 +175,7 @@ func TestFeatureFlagManager_GetAllFlags(t *testing.T) {
 }
 
 func TestFeatureFlagManager_GetEnabledFlags(t *testing.T) {
-	t.Run("returns only enabled flags", func(t *testing.T) {
+	t.Run("returns only enabled flags", func(_ *testing.T) {
 		flags := &FeatureFlags{
 			EnableWebhooks:       true,
 			EnableMetrics:        false,
@@ -196,7 +196,7 @@ func TestFeatureFlagManager_GetEnabledFlags(t *testing.T) {
 		assert.ElementsMatch(t, expected, enabledFlags)
 	})
 
-	t.Run("returns empty slice when no flags enabled", func(t *testing.T) {
+	t.Run("returns empty slice when no flags enabled", func(_ *testing.T) {
 		flags := &FeatureFlags{
 			EnableWebhooks:       false,
 			EnableMetrics:        false,
@@ -214,13 +214,27 @@ func TestFeatureFlagManager_GetEnabledFlags(t *testing.T) {
 	})
 }
 
+// flagTestCase represents a test case for flag operations
+type flagTestCase struct {
+	name     string
+	flags    *FeatureFlags
+	flagList []string
+	expected bool
+}
+
+// runFlagTests runs table-driven tests for flag operations
+func runFlagTests(t *testing.T, tests []flagTestCase, testFunc func(*FeatureFlagManager, []string) bool) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(_ *testing.T) {
+			manager := NewFeatureFlagManager(tt.flags)
+			result := testFunc(manager, tt.flagList)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
 func TestFeatureFlagManager_IsAnyEnabled(t *testing.T) {
-	tests := []struct {
-		name     string
-		flags    *FeatureFlags
-		flagList []string
-		expected bool
-	}{
+	tests := []flagTestCase{
 		{
 			name: "at least one flag enabled",
 			flags: &FeatureFlags{
@@ -260,22 +274,13 @@ func TestFeatureFlagManager_IsAnyEnabled(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			manager := NewFeatureFlagManager(tt.flags)
-			result := manager.IsAnyEnabled(tt.flagList...)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
+	runFlagTests(t, tests, func(manager *FeatureFlagManager, flagList []string) bool {
+		return manager.IsAnyEnabled(flagList...)
+	})
 }
 
 func TestFeatureFlagManager_IsAllEnabled(t *testing.T) {
-	tests := []struct {
-		name     string
-		flags    *FeatureFlags
-		flagList []string
-		expected bool
-	}{
+	tests := []flagTestCase{
 		{
 			name: "all flags enabled",
 			flags: &FeatureFlags{
@@ -315,13 +320,9 @@ func TestFeatureFlagManager_IsAllEnabled(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			manager := NewFeatureFlagManager(tt.flags)
-			result := manager.IsAllEnabled(tt.flagList...)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
+	runFlagTests(t, tests, func(manager *FeatureFlagManager, flagList []string) bool {
+		return manager.IsAllEnabled(flagList...)
+	})
 }
 
 func TestFeatureFlagManager_WithEnvironmentOverrides(t *testing.T) {
@@ -398,20 +399,21 @@ func TestFeatureFlagManager_WithEnvironmentOverrides(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			manager := NewFeatureFlagManager(tt.flags)
 			overriddenManager := manager.WithEnvironmentOverrides(tt.environment)
 
 			for flagName, expectedValue := range tt.expected {
 				actualValue := overriddenManager.IsEnabled(flagName)
-				assert.Equal(t, expectedValue, actualValue, "Flag %s should be %v in %s environment", flagName, expectedValue, tt.environment)
+				assert.Equal(t, expectedValue, actualValue,
+					"Flag %s should be %v in %s environment", flagName, expectedValue, tt.environment)
 			}
 		})
 	}
 }
 
 func TestFeatureFlagManager_Clone(t *testing.T) {
-	t.Run("creates independent copy", func(t *testing.T) {
+	t.Run("creates independent copy", func(_ *testing.T) {
 		original := &FeatureFlags{
 			EnableWebhooks: true,
 			EnableMetrics:  false,
@@ -436,7 +438,7 @@ func TestFeatureFlagManager_Clone(t *testing.T) {
 		assert.True(t, clonedManager.IsEnabled("EnableWebhooks"))
 	})
 
-	t.Run("handles nil flags", func(t *testing.T) {
+	t.Run("handles nil flags", func(_ *testing.T) {
 		manager := NewFeatureFlagManager(nil)
 		clonedManager := manager.Clone()
 
@@ -447,7 +449,7 @@ func TestFeatureFlagManager_Clone(t *testing.T) {
 }
 
 func TestFeatureFlagManager_String(t *testing.T) {
-	t.Run("returns formatted string representation", func(t *testing.T) {
+	t.Run("returns formatted string representation", func(_ *testing.T) {
 		flags := &FeatureFlags{
 			EnableWebhooks: true,
 			EnableMetrics:  false,
@@ -465,7 +467,7 @@ func TestFeatureFlagManager_String(t *testing.T) {
 		assert.Contains(t, str, "customFeature=true")
 	})
 
-	t.Run("handles nil flags", func(t *testing.T) {
+	t.Run("handles nil flags", func(_ *testing.T) {
 		manager := NewFeatureFlagManager(nil)
 		str := manager.String()
 
@@ -477,7 +479,7 @@ func TestFeatureFlagManager_String(t *testing.T) {
 }
 
 func TestFeatureFlagManager_ThreadSafety(t *testing.T) {
-	t.Run("concurrent access is safe", func(t *testing.T) {
+	t.Run("concurrent access is safe", func(_ *testing.T) {
 		flags := &FeatureFlags{
 			CustomFlags: make(map[string]bool),
 		}
@@ -498,7 +500,7 @@ func TestFeatureFlagManager_ThreadSafety(t *testing.T) {
 }
 
 func TestFeatureFlagManager_GetStandardFlags(t *testing.T) {
-	t.Run("returns standard flags with values", func(t *testing.T) {
+	t.Run("returns standard flags with values", func(_ *testing.T) {
 		manager := NewFeatureFlagManager(&FeatureFlags{
 			EnableWebhooks:       true,
 			EnableMetrics:        false,
@@ -516,7 +518,7 @@ func TestFeatureFlagManager_GetStandardFlags(t *testing.T) {
 		assert.Equal(t, expected, flags)
 	})
 
-	t.Run("returns default values for nil flags", func(t *testing.T) {
+	t.Run("returns default values for nil flags", func(_ *testing.T) {
 		manager := NewFeatureFlagManager(nil)
 
 		flags := manager.GetStandardFlags()
@@ -531,7 +533,7 @@ func TestFeatureFlagManager_GetStandardFlags(t *testing.T) {
 }
 
 func TestFeatureFlagManager_GetCustomFlags(t *testing.T) {
-	t.Run("returns custom flags", func(t *testing.T) {
+	t.Run("returns custom flags", func(_ *testing.T) {
 		customFlags := map[string]bool{
 			"feature1": true,
 			"feature2": false,
@@ -544,7 +546,7 @@ func TestFeatureFlagManager_GetCustomFlags(t *testing.T) {
 		assert.Equal(t, customFlags, flags)
 	})
 
-	t.Run("returns empty map for nil custom flags", func(t *testing.T) {
+	t.Run("returns empty map for nil custom flags", func(_ *testing.T) {
 		manager := NewFeatureFlagManager(&FeatureFlags{
 			CustomFlags: nil,
 		})
@@ -553,7 +555,7 @@ func TestFeatureFlagManager_GetCustomFlags(t *testing.T) {
 		assert.Empty(t, flags)
 	})
 
-	t.Run("returns empty map for nil flags", func(t *testing.T) {
+	t.Run("returns empty map for nil flags", func(_ *testing.T) {
 		manager := NewFeatureFlagManager(nil)
 
 		flags := manager.GetCustomFlags()
@@ -567,23 +569,23 @@ func TestFeatureFlagManager_HasFlag(t *testing.T) {
 		CustomFlags:    map[string]bool{"customFlag": true},
 	})
 
-	t.Run("returns true for existing standard flag", func(t *testing.T) {
+	t.Run("returns true for existing standard flag", func(_ *testing.T) {
 		assert.True(t, manager.HasFlag("EnableWebhooks"))
 	})
 
-	t.Run("returns true for standard flag even if false", func(t *testing.T) {
+	t.Run("returns true for standard flag even if false", func(_ *testing.T) {
 		assert.True(t, manager.HasFlag("EnableMetrics"))
 	})
 
-	t.Run("returns true for existing custom flag", func(t *testing.T) {
+	t.Run("returns true for existing custom flag", func(_ *testing.T) {
 		assert.True(t, manager.HasFlag("customFlag"))
 	})
 
-	t.Run("returns false for non-existent flag", func(t *testing.T) {
+	t.Run("returns false for non-existent flag", func(_ *testing.T) {
 		assert.False(t, manager.HasFlag("nonExistent"))
 	})
 
-	t.Run("returns false for nil flags", func(t *testing.T) {
+	t.Run("returns false for nil flags", func(_ *testing.T) {
 		nilManager := NewFeatureFlagManager(nil)
 		assert.False(t, nilManager.HasFlag("EnableWebhooks"))
 	})
@@ -594,38 +596,38 @@ func TestFeatureFlagManager_SetStandardFlag(t *testing.T) {
 		EnableWebhooks: false,
 	})
 
-	t.Run("sets EnableWebhooks", func(t *testing.T) {
+	t.Run("sets EnableWebhooks", func(_ *testing.T) {
 		err := manager.SetStandardFlag("EnableWebhooks", true)
 		assert.NoError(t, err)
 		assert.True(t, manager.IsEnabled("EnableWebhooks"))
 	})
 
-	t.Run("sets EnableMetrics", func(t *testing.T) {
+	t.Run("sets EnableMetrics", func(_ *testing.T) {
 		err := manager.SetStandardFlag("EnableMetrics", true)
 		assert.NoError(t, err)
 		assert.True(t, manager.IsEnabled("EnableMetrics"))
 	})
 
-	t.Run("sets EnableTracing", func(t *testing.T) {
+	t.Run("sets EnableTracing", func(_ *testing.T) {
 		err := manager.SetStandardFlag("EnableTracing", true)
 		assert.NoError(t, err)
 		assert.True(t, manager.IsEnabled("EnableTracing"))
 	})
 
-	t.Run("sets ExperimentalFeatures", func(t *testing.T) {
+	t.Run("sets ExperimentalFeatures", func(_ *testing.T) {
 		err := manager.SetStandardFlag("ExperimentalFeatures", true)
 		assert.NoError(t, err)
 		assert.True(t, manager.IsEnabled("ExperimentalFeatures"))
 	})
 
-	t.Run("returns error for unknown standard flag", func(t *testing.T) {
+	t.Run("returns error for unknown standard flag", func(_ *testing.T) {
 		err := manager.SetStandardFlag("UnknownFlag", true)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "standard flag UnknownFlag does not exist")
 		assert.False(t, manager.IsEnabled("UnknownFlag"))
 	})
 
-	t.Run("initializes flags if nil", func(t *testing.T) {
+	t.Run("initializes flags if nil", func(_ *testing.T) {
 		nilManager := NewFeatureFlagManager(nil)
 		err := nilManager.SetStandardFlag("EnableWebhooks", true)
 		assert.NoError(t, err)
@@ -641,18 +643,18 @@ func TestFeatureFlagManager_RemoveCustomFlag(t *testing.T) {
 		},
 	})
 
-	t.Run("removes existing custom flag", func(t *testing.T) {
+	t.Run("removes existing custom flag", func(_ *testing.T) {
 		manager.RemoveCustomFlag("flag1")
 		assert.False(t, manager.HasFlag("flag1"))
 		assert.True(t, manager.HasFlag("flag2"))
 	})
 
-	t.Run("handles non-existent flag gracefully", func(t *testing.T) {
+	t.Run("handles non-existent flag gracefully", func(_ *testing.T) {
 		manager.RemoveCustomFlag("nonExistent")
 		assert.True(t, manager.HasFlag("flag2"))
 	})
 
-	t.Run("handles nil custom flags", func(t *testing.T) {
+	t.Run("handles nil custom flags", func(_ *testing.T) {
 		nilManager := NewFeatureFlagManager(&FeatureFlags{
 			CustomFlags: nil,
 		})
@@ -660,7 +662,7 @@ func TestFeatureFlagManager_RemoveCustomFlag(t *testing.T) {
 		// Should not panic
 	})
 
-	t.Run("handles nil flags", func(t *testing.T) {
+	t.Run("handles nil flags", func(_ *testing.T) {
 		nilManager := NewFeatureFlagManager(nil)
 		nilManager.RemoveCustomFlag("any")
 		// Should not panic
@@ -675,13 +677,13 @@ func TestFeatureFlagManager_ClearCustomFlags(t *testing.T) {
 		},
 	})
 
-	t.Run("clears all custom flags", func(t *testing.T) {
+	t.Run("clears all custom flags", func(_ *testing.T) {
 		manager.ClearCustomFlags()
 		customFlags := manager.GetCustomFlags()
 		assert.Empty(t, customFlags)
 	})
 
-	t.Run("handles nil custom flags", func(t *testing.T) {
+	t.Run("handles nil custom flags", func(_ *testing.T) {
 		nilManager := NewFeatureFlagManager(&FeatureFlags{
 			CustomFlags: nil,
 		})
@@ -689,7 +691,7 @@ func TestFeatureFlagManager_ClearCustomFlags(t *testing.T) {
 		// Should not panic
 	})
 
-	t.Run("handles nil flags", func(t *testing.T) {
+	t.Run("handles nil flags", func(_ *testing.T) {
 		nilManager := NewFeatureFlagManager(nil)
 		nilManager.ClearCustomFlags()
 		// Should not panic
@@ -698,7 +700,7 @@ func TestFeatureFlagManager_ClearCustomFlags(t *testing.T) {
 
 // Test additional coverage for WithEnvironmentOverrides
 func TestFeatureFlagManager_WithEnvironmentOverrides_Coverage(t *testing.T) {
-	t.Run("test all environment cases", func(t *testing.T) {
+	t.Run("test all environment cases", func(_ *testing.T) {
 		flags := &FeatureFlags{
 			EnableWebhooks:       true,
 			EnableMetrics:        true,
@@ -752,7 +754,7 @@ func TestFeatureFlagManager_WithEnvironmentOverrides_Coverage(t *testing.T) {
 
 // Test additional coverage for HasFlag edge cases
 func TestFeatureFlagManager_HasFlag_Coverage(t *testing.T) {
-	t.Run("test all standard flags", func(t *testing.T) {
+	t.Run("test all standard flags", func(_ *testing.T) {
 		flags := &FeatureFlags{
 			EnableWebhooks:       true,
 			EnableMetrics:        false,
@@ -783,7 +785,7 @@ func TestFeatureFlagManager_HasFlag_Coverage(t *testing.T) {
 
 // Test additional coverage for SetStandardFlag edge cases
 func TestFeatureFlagManager_SetStandardFlag_Coverage(t *testing.T) {
-	t.Run("test all standard flags", func(t *testing.T) {
+	t.Run("test all standard flags", func(_ *testing.T) {
 		manager := NewFeatureFlagManager(nil) // Start with nil flags
 
 		// Test setting each standard flag
@@ -810,20 +812,14 @@ func TestFeatureFlagManager_SetStandardFlag_Coverage(t *testing.T) {
 		assert.False(t, manager.IsEnabled("UnknownFlag"))
 	})
 
-	t.Run("test error conditions for reflection", func(t *testing.T) {
+	t.Run("test error conditions for reflection", func(_ *testing.T) {
 		// Test trying to set a field that would fail the CanSet check
 		// We need to create a scenario where reflection would fail
 		// For our current FeatureFlags struct, all fields are exported and settable,
 		// so we'll create a test specifically for the error paths
 
 		// Create a flags struct with a non-boolean field to test the type check
-		type TestFlags struct {
-			EnableWebhooks       bool
-			EnableMetrics        bool
-			EnableTracing        bool
-			ExperimentalFeatures bool
-			NonBooleanField      string // This will trigger the boolean type error
-		}
+		// (This was removed as it's not actually needed for testing)
 
 		// We can't easily substitute TestFlags for FeatureFlags in the manager
 		// without major changes, so let's focus on testing the actual error paths

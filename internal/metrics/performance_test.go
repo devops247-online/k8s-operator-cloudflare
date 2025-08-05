@@ -567,7 +567,7 @@ func TestMetricsRegistration(t *testing.T) {
 	}
 }
 
-func TestPerformanceMetrics_DeepErrorPaths(t *testing.T) {
+func TestPerformanceMetrics_DeepErrorPaths(_ *testing.T) {
 	pm := NewPerformanceMetrics()
 
 	// Test concurrent access to create potential race conditions
@@ -708,7 +708,7 @@ func TestPerformanceMetrics_ForceWriteError(t *testing.T) {
 	}
 
 	for i, labels := range problematicLabels {
-		t.Run(fmt.Sprintf("problematic-labels-%d", i), func(t *testing.T) {
+		t.Run(fmt.Sprintf("problematic-labels-%d", i), func(_ *testing.T) {
 			// Set some value first
 			pm.UpdateQueueDepth(labels[0], labels[1], float64(i))
 
@@ -731,7 +731,7 @@ func TestPerformanceMetrics_ForceWriteError(t *testing.T) {
 }
 
 // Test with metric registry corruption simulation
-func TestPerformanceMetrics_RegistryCorruption(t *testing.T) {
+func TestPerformanceMetrics_RegistryCorruption(_ *testing.T) {
 	pm := NewPerformanceMetrics()
 
 	// Create metrics with extreme conditions that might cause registry issues
@@ -755,7 +755,7 @@ func TestPerformanceMetrics_RegistryCorruption(t *testing.T) {
 }
 
 // Test with NaN and Inf values to potentially trigger Write() errors
-func TestPerformanceMetrics_SpecialFloatValues(t *testing.T) {
+func TestPerformanceMetrics_SpecialFloatValues(_ *testing.T) {
 	pm := NewPerformanceMetrics()
 
 	specialValues := []float64{
@@ -798,7 +798,7 @@ func TestPerformanceMetrics_DirectWriteErrorPath(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
+		t.Run(tc.name, func(_ *testing.T) {
 			// Set metric first
 			pm.UpdateQueueDepth(tc.controller, tc.namespace, tc.value)
 			pm.IncReconcileRate(tc.controller, "success", tc.namespace)
@@ -871,7 +871,7 @@ func TestPerformanceMetrics_BrokenMetricWriteError(t *testing.T) {
 }
 
 // Test that tries to force metric corruption scenarios
-func TestPerformanceMetrics_MetricCorruptionScenarios(t *testing.T) {
+func TestPerformanceMetrics_MetricCorruptionScenarios(_ *testing.T) {
 	pm := NewPerformanceMetrics()
 
 	// Scenario 1: Concurrent modification while reading

@@ -38,7 +38,18 @@ func TestNewCloudflareRecordReconciler(t *testing.T) {
 	assert.Equal(t, 1*time.Minute, reconciler.RequeueIntervalOnError)
 }
 
-func TestLoadPerformanceConfigFromEnv(t *testing.T) {
+// envConfigTestCase represents a test case for environment configuration
+type envConfigTestCase struct {
+	name                   string
+	envVars                map[string]string
+	expectedConcurrent     int
+	expectedTimeout        time.Duration
+	expectedRequeue        time.Duration
+	expectedRequeueOnError time.Duration
+}
+
+// setupEnvConfigTest sets up environment variables and creates reconciler for testing
+func setupEnvConfigTest(t *testing.T, testCase envConfigTestCase) *CloudflareRecordReconciler {
 	scheme := runtime.NewScheme()
 	_ = clientgoscheme.AddToScheme(scheme)
 	_ = dnsv1.AddToScheme(scheme)
@@ -46,54 +57,70 @@ func TestLoadPerformanceConfigFromEnv(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 
 	// Set environment variables
-	_ = os.Setenv("MAX_CONCURRENT_RECONCILES", "10")
-	_ = os.Setenv("RECONCILE_TIMEOUT", "10m")
-	_ = os.Setenv("REQUEUE_INTERVAL", "10m")
-	_ = os.Setenv("REQUEUE_INTERVAL_ON_ERROR", "2m")
+	for key, value := range testCase.envVars {
+		_ = os.Setenv(key, value)
+	}
 
-	defer func() {
-		_ = os.Unsetenv("MAX_CONCURRENT_RECONCILES")
-		_ = os.Unsetenv("RECONCILE_TIMEOUT")
-		_ = os.Unsetenv("REQUEUE_INTERVAL")
-		_ = os.Unsetenv("REQUEUE_INTERVAL_ON_ERROR")
-	}()
+	// Cleanup function
+	t.Cleanup(func() {
+		for key := range testCase.envVars {
+			_ = os.Unsetenv(key)
+		}
+	})
 
-	reconciler := NewCloudflareRecordReconciler(fakeClient, scheme, nil)
+	return NewCloudflareRecordReconciler(fakeClient, scheme, nil)
+}
 
-	// Check that environment variables were loaded
-	assert.Equal(t, 10, reconciler.MaxConcurrentReconciles)
-	assert.Equal(t, 10*time.Minute, reconciler.ReconcileTimeout)
-	assert.Equal(t, 10*time.Minute, reconciler.RequeueInterval)
-	assert.Equal(t, 2*time.Minute, reconciler.RequeueIntervalOnError)
+// runEnvConfigTest runs a single environment configuration test
+func runEnvConfigTest(t *testing.T, testCase envConfigTestCase) {
+	t.Run(testCase.name, func(t *testing.T) {
+		reconciler := setupEnvConfigTest(t, testCase)
+
+		assert.Equal(t, testCase.expectedConcurrent, reconciler.MaxConcurrentReconciles)
+		assert.Equal(t, testCase.expectedTimeout, reconciler.ReconcileTimeout)
+		assert.Equal(t, testCase.expectedRequeue, reconciler.RequeueInterval)
+		assert.Equal(t, testCase.expectedRequeueOnError, reconciler.RequeueIntervalOnError)
+	})
+}
+
+func TestLoadPerformanceConfigFromEnv(t *testing.T) {
+	testCases := []envConfigTestCase{
+		{
+			name: "valid environment variables",
+			envVars: map[string]string{
+				"MAX_CONCURRENT_RECONCILES": "10",
+				"RECONCILE_TIMEOUT":         "10m",
+				"REQUEUE_INTERVAL":          "10m",
+				"REQUEUE_INTERVAL_ON_ERROR": "2m",
+			},
+			expectedConcurrent:     10,
+			expectedTimeout:        10 * time.Minute,
+			expectedRequeue:        10 * time.Minute,
+			expectedRequeueOnError: 2 * time.Minute,
+		},
+	}
+
+	for _, testCase := range testCases {
+		runEnvConfigTest(t, testCase)
+	}
 }
 
 func TestLoadPerformanceConfigInvalidValues(t *testing.T) {
-	scheme := runtime.NewScheme()
-	_ = clientgoscheme.AddToScheme(scheme)
-	_ = dnsv1.AddToScheme(scheme)
+	testCase := envConfigTestCase{
+		name: "invalid environment variables use defaults",
+		envVars: map[string]string{
+			"MAX_CONCURRENT_RECONCILES": "invalid",
+			"RECONCILE_TIMEOUT":         "invalid",
+			"REQUEUE_INTERVAL":          "invalid",
+			"REQUEUE_INTERVAL_ON_ERROR": "invalid",
+		},
+		expectedConcurrent:     5,
+		expectedTimeout:        5 * time.Minute,
+		expectedRequeue:        5 * time.Minute,
+		expectedRequeueOnError: 1 * time.Minute,
+	}
 
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-
-	// Set invalid environment variables
-	_ = os.Setenv("MAX_CONCURRENT_RECONCILES", "invalid")
-	_ = os.Setenv("RECONCILE_TIMEOUT", "invalid")
-	_ = os.Setenv("REQUEUE_INTERVAL", "invalid")
-	_ = os.Setenv("REQUEUE_INTERVAL_ON_ERROR", "invalid")
-
-	defer func() {
-		_ = os.Unsetenv("MAX_CONCURRENT_RECONCILES")
-		_ = os.Unsetenv("RECONCILE_TIMEOUT")
-		_ = os.Unsetenv("REQUEUE_INTERVAL")
-		_ = os.Unsetenv("REQUEUE_INTERVAL_ON_ERROR")
-	}()
-
-	reconciler := NewCloudflareRecordReconciler(fakeClient, scheme, nil)
-
-	// Check that defaults are used when invalid values are provided
-	assert.Equal(t, 5, reconciler.MaxConcurrentReconciles)
-	assert.Equal(t, 5*time.Minute, reconciler.ReconcileTimeout)
-	assert.Equal(t, 5*time.Minute, reconciler.RequeueInterval)
-	assert.Equal(t, 1*time.Minute, reconciler.RequeueIntervalOnError)
+	runEnvConfigTest(t, testCase)
 }
 
 func TestReconcileWithPerformanceMetrics(t *testing.T) {
@@ -234,7 +261,7 @@ func TestSetupWithManagerWithOptions(t *testing.T) {
 	assert.Equal(t, 10, reconciler.MaxConcurrentReconciles)
 }
 
-func TestReconcileWithTimeout(t *testing.T) {
+func TestReconcileWithTimeout(_ *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = clientgoscheme.AddToScheme(scheme)
 	_ = dnsv1.AddToScheme(scheme)

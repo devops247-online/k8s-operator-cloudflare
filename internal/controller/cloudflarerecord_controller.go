@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package controller implements the Kubernetes controller for managing CloudflareRecord resources.
 package controller
 
 import (
@@ -63,6 +64,7 @@ type CloudflareRecordReconciler struct {
 	businessMetrics    *metrics.BusinessMetrics
 }
 
+//nolint:lll
 // +kubebuilder:rbac:groups=dns.cloudflare.io,resources=cloudflarerecords,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=dns.cloudflare.io,resources=cloudflarerecords/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=dns.cloudflare.io,resources=cloudflarerecords/finalizers,verbs=update
@@ -70,7 +72,8 @@ type CloudflareRecordReconciler struct {
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // NewCloudflareRecordReconciler creates a new CloudflareRecordReconciler with performance configuration
-func NewCloudflareRecordReconciler(kubeClient client.Client, scheme *runtime.Scheme, configManager *config.ConfigManager) *CloudflareRecordReconciler {
+func NewCloudflareRecordReconciler(kubeClient client.Client, scheme *runtime.Scheme,
+	configManager *config.ConfigManager) *CloudflareRecordReconciler {
 	reconciler := &CloudflareRecordReconciler{
 		Client:             kubeClient,
 		Scheme:             scheme,
@@ -289,7 +292,8 @@ func (r *CloudflareRecordReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	r.performanceMetrics.ObserveAPIResponseTime("record_update", "200", req.Namespace, time.Since(apiStartTime))
 
 	// Update status to indicate processing
-	r.updateStatus(&cloudflareRecord, true, dnsv1.ConditionReasonRecordCreated, "DNS record processing completed (implementation ready for Cloudflare API)")
+	r.updateStatus(&cloudflareRecord, true, dnsv1.ConditionReasonRecordCreated,
+		"DNS record processing completed (implementation ready for Cloudflare API)")
 
 	cloudflareRecord.Status.ObservedGeneration = cloudflareRecord.Generation
 	now := metav1.NewTime(time.Now())
@@ -336,7 +340,8 @@ func (r *CloudflareRecordReconciler) Reconcile(ctx context.Context, req ctrl.Req
 }
 
 // reconcileDelete handles the deletion of CloudflareRecord
-func (r *CloudflareRecordReconciler) reconcileDelete(ctx context.Context, cloudflareRecord *dnsv1.CloudflareRecord) (ctrl.Result, error) {
+func (r *CloudflareRecordReconciler) reconcileDelete(ctx context.Context,
+	cloudflareRecord *dnsv1.CloudflareRecord) (ctrl.Result, error) {
 	startTime := time.Now()
 
 	// Start tracing span for delete operation
@@ -394,7 +399,8 @@ func (r *CloudflareRecordReconciler) reconcileDelete(ctx context.Context, cloudf
 }
 
 // updateStatus updates the status of the CloudflareRecord
-func (r *CloudflareRecordReconciler) updateStatus(cloudflareRecord *dnsv1.CloudflareRecord, ready bool, reason, message string) {
+func (r *CloudflareRecordReconciler) updateStatus(cloudflareRecord *dnsv1.CloudflareRecord, ready bool,
+	reason, message string) {
 	cloudflareRecord.Status.Ready = ready
 
 	// Update condition

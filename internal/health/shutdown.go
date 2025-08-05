@@ -79,7 +79,7 @@ func (gsm *GracefulShutdownManager) executeGracefulShutdown() {
 func DefaultShutdownCallbacks() []func(context.Context) error {
 	return []func(context.Context) error{
 		// Clean up in-flight reconciliations
-		func(ctx context.Context) error {
+		func(_ context.Context) error {
 			log.Log.Info("Waiting for in-flight reconciliations to complete")
 			// Add logic to wait for reconciliations
 			time.Sleep(2 * time.Second) // Placeholder
@@ -87,14 +87,14 @@ func DefaultShutdownCallbacks() []func(context.Context) error {
 		},
 
 		// Clean up connections
-		func(ctx context.Context) error {
+		func(_ context.Context) error {
 			log.Log.Info("Closing external connections")
 			// Add logic to close Cloudflare API connections
 			return nil
 		},
 
 		// Final cleanup
-		func(ctx context.Context) error {
+		func(_ context.Context) error {
 			log.Log.Info("Performing final cleanup")
 			return nil
 		},

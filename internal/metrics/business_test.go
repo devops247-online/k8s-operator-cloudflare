@@ -1,3 +1,4 @@
+//nolint:lll // Test files have long assertion descriptions
 package metrics
 
 import (
@@ -12,6 +13,10 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+)
+
+const (
+	testZone = "example.com"
 )
 
 func TestBusinessMetrics_UpdateDNSRecordsByType(t *testing.T) {
@@ -30,7 +35,7 @@ func TestBusinessMetrics_UpdateDNSRecordsByType(t *testing.T) {
 
 	// Test data
 	recordType := "A"
-	zoneName := "example.com"
+	zoneName := testZone
 	zoneID := "zone-123"
 	count := 10.0
 
@@ -58,7 +63,7 @@ func TestBusinessMetrics_UpdateDNSRecordsByStatus(t *testing.T) {
 
 	// Test data
 	status := "active"
-	zoneName := "example.com"
+	zoneName := testZone
 	zoneID := "zone-123"
 	count := 15.0
 
@@ -586,7 +591,7 @@ func TestBusinessMetrics_DeepErrorPaths(t *testing.T) {
 	}
 }
 
-func TestBusinessMetrics_ConcurrencyEdgeCases(t *testing.T) {
+func TestBusinessMetrics_ConcurrencyEdgeCases(_ *testing.T) {
 	bm := NewBusinessMetrics()
 
 	// Test concurrent access to metrics which might cause edge cases
@@ -643,7 +648,7 @@ func TestBusinessMetrics_ForceWriteErrorPaths(t *testing.T) {
 	}
 
 	for i, labels := range extremeLabels {
-		t.Run(fmt.Sprintf("extreme-write-error-%d", i), func(t *testing.T) {
+		t.Run(fmt.Sprintf("extreme-write-error-%d", i), func(_ *testing.T) {
 			// Set values first
 			bm.UpdateDNSRecordsByType(labels[0], labels[1], labels[2], float64(i))
 			bm.UpdateCRDResourceStatus(labels[0], labels[1], labels[2], float64(i))
@@ -662,7 +667,7 @@ func TestBusinessMetrics_ForceWriteErrorPaths(t *testing.T) {
 }
 
 // Test with special float values that might cause Write() issues
-func TestBusinessMetrics_SpecialFloatWriteErrors(t *testing.T) {
+func TestBusinessMetrics_SpecialFloatWriteErrors(_ *testing.T) {
 	bm := NewBusinessMetrics()
 
 	specialValues := []float64{
@@ -691,7 +696,7 @@ func TestBusinessMetrics_SpecialFloatWriteErrors(t *testing.T) {
 }
 
 // Stress test to potentially trigger internal Prometheus errors
-func TestBusinessMetrics_StressWriteErrors(t *testing.T) {
+func TestBusinessMetrics_StressWriteErrors(_ *testing.T) {
 	bm := NewBusinessMetrics()
 
 	// Create high contention scenario
@@ -721,7 +726,7 @@ func TestBusinessMetrics_StressWriteErrors(t *testing.T) {
 	wg.Wait()
 }
 
-func TestBusinessMetrics_ExtremeValues(t *testing.T) {
+func TestBusinessMetrics_ExtremeValues(_ *testing.T) {
 	bm := NewBusinessMetrics()
 
 	extremeValues := []float64{
@@ -894,7 +899,7 @@ func TestBusinessMetrics_WriteErrorSimulation(t *testing.T) {
 }
 
 // Direct test to trigger Write() error path in the actual business methods
-func TestBusinessMetrics_DirectWriteErrorTrigger(t *testing.T) {
+func TestBusinessMetrics_DirectWriteErrorTrigger(_ *testing.T) {
 	bm := NewBusinessMetrics()
 
 	// Test approach: Create many scenarios that may trigger internal errors

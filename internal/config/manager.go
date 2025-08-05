@@ -10,7 +10,7 @@ import (
 )
 
 // ConfigChangeCallback is called when configuration changes
-type ConfigChangeCallback func(oldConfig, newConfig *Config)
+type ConfigChangeCallback func(oldConfig, newConfig *Config) //nolint:revive,lll // ConfigChangeCallback is clear
 
 // ManagerOptions contains options for the configuration manager
 type ManagerOptions struct {
@@ -28,7 +28,7 @@ type ManagerOptions struct {
 }
 
 // ConfigManager manages configuration loading, reloading, and change notifications
-type ConfigManager struct {
+type ConfigManager struct { //nolint:revive // ConfigManager is clear and consistent
 	client    client.Client
 	namespace string
 	options   *ManagerOptions
@@ -324,7 +324,8 @@ func (opts *ManagerOptions) Validate() error {
 	}
 
 	if opts.AutoReload && opts.ReloadInterval < 1*time.Second {
-		return fmt.Errorf("reload interval must be at least 1 second when auto-reload is enabled, got: %v", opts.ReloadInterval)
+		return fmt.Errorf("reload interval must be at least 1 second when auto-reload is enabled, got: %v",
+			opts.ReloadInterval)
 	}
 
 	return nil

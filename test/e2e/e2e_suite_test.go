@@ -22,8 +22,8 @@ import (
 	"os/exec"
 	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2" //nolint:revive // Using ginkgo DSL
+	. "github.com/onsi/gomega"    //nolint:revive // Using gomega DSL
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"

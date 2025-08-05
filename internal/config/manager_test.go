@@ -291,7 +291,7 @@ func TestConfigManager_ConfigChangeCallback(t *testing.T) {
 		var callbackConfig *Config
 		done := make(chan bool, 1)
 
-		callback := func(oldConfig, newConfig *Config) {
+		callback := func(_, newConfig *Config) {
 			callbackCalled = true
 			callbackConfig = newConfig
 			done <- true
@@ -322,12 +322,12 @@ func TestConfigManager_ConfigChangeCallback(t *testing.T) {
 		var callback1Called, callback2Called bool
 		done := make(chan bool, 2)
 
-		manager.RegisterConfigChangeCallback(func(old, newConfig *Config) {
+		manager.RegisterConfigChangeCallback(func(_, _ *Config) {
 			callback1Called = true
 			done <- true
 		})
 
-		manager.RegisterConfigChangeCallback(func(old, newConfig *Config) {
+		manager.RegisterConfigChangeCallback(func(_, _ *Config) {
 			callback2Called = true
 			done <- true
 		})
@@ -609,7 +609,7 @@ func TestConfigManager_StopAutoReload(t *testing.T) {
 		// Should not panic
 	})
 
-	t.Run("stops auto reload when not running", func(t *testing.T) {
+	t.Run("stops auto reload when not running", func(_ *testing.T) {
 		manager := NewConfigManager(nil, "test-namespace")
 
 		manager.StopAutoReload()
@@ -744,7 +744,7 @@ func TestConfigManager_AutoReload_ErrorCases(t *testing.T) {
 		assert.Contains(t, err.Error(), "auto-reload is not enabled")
 	})
 
-	t.Run("stop auto reload when not started", func(t *testing.T) {
+	t.Run("stop auto reload when not started", func(_ *testing.T) {
 		manager := NewConfigManager(nil, "test-namespace")
 
 		// Should not panic or error

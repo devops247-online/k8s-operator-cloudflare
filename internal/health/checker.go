@@ -1,3 +1,4 @@
+// Package health provides health checking functionality for the Cloudflare DNS Operator.
 package health
 
 import (

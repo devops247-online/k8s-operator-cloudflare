@@ -1,0 +1,141 @@
+# Development environment values for cloudflare-dns-operator.
+
+image:
+  repository: cloudflare-dns-operator
+  tag: dev
+  pullPolicy: Always
+
+replicaCount: 1
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 128Mi
+  requests:
+    cpu: 50m
+    memory: 32Mi
+
+# Development cloudflare configuration
+cloudflare:
+  email: ""
+  apiTokenSecretName: "cloudflare-dev-credentials"  # pragma: allowlist secret
+  apiTokenSecretKey: "api-token"  # pragma: allowlist secret
+
+operator:
+  logLevel: debug
+  leaderElection: false  # Disable for single replica dev
+
+# Enable monitoring for development
+monitoring:
+  serviceMonitor:
+    enabled: true
+    interval: 60s
+    labels:
+      environment: development
+
+# Development SLO configuration (relaxed targets)
+slo:
+  enabled: true
+  targets:
+    availability: 95.0    # Lower availability target for dev
+    successRate: 90.0     # Lower success rate requirement
+    latencyP95: 60s       # Relaxed latency target
+    latencyP99: 120s
+    throughputMin: 1.0    # Very low throughput requirement
+
+  errorBudget:
+    windowDays: 7         # Short window for development
+    alertThresholds:
+      warning: 0.7        # Higher thresholds (less sensitive)
+      critical: 0.9
+
+  alerting:
+    pageAlerts:
+      enabled: false      # No paging in development
+    ticketAlerts:
+      enabled: true
+      severity: info      # Just informational alerts
+
+  recordingRules:
+    enabled: true
+    labels:
+      environment: development
+
+# Development reliability configuration
+reliability:
+  enabled: true
+
+  circuitBreaker:
+    enabled: false        # Disable circuit breaker in dev
+    name: cloudflare-api-dev
+
+  retry:
+    enabled: true
+    maxAttempts: 2        # Fewer retries in dev
+    initialDelay: 500ms
+    maxDelay: 10s
+    multiplier: 2.0
+    jitter: true
+
+  rateLimiter:
+    enabled: true
+    type: token_bucket
+    requestsPerSecond: 10.0   # Higher rate limit for dev
+    burstSize: 20
+    backoffStrategy: reject   # Fail fast in development
+
+  metrics:
+    enabled: true
+
+# Development environment configuration
+config:
+  enabled: true
+  environment: development
+
+  operator:
+    logLevel: debug
+    reconcileInterval: "30s"    # Very frequent reconciliation for dev
+
+  cloudflare:
+    apiTimeout: "15s"
+    rateLimitRPS: 10
+    retryAttempts: 2
+
+# Development logging (very verbose)
+logging:
+  enabled: true
+  level: debug
+  format: console           # Console format for easier reading in dev
+  development: true         # Enable caller info and stack traces
+  sampling:
+    enabled: false          # No sampling in development
+
+# Enable tracing in development with full sampling
+tracing:
+  enabled: true
+  serviceName: cloudflare-dns-operator-dev
+  environment: development
+  exporter:
+    type: console          # Console output for development
+  sampling:
+    type: always           # Always sample in development
+    ratio: 1.0
+
+# Disable network policies in development
+networkPolicy:
+  enabled: false
+
+# Relaxed security context for development
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65532
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  fsGroup: 65532

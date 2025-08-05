@@ -18,7 +18,7 @@ import (
 )
 
 // ConfigLoader handles loading configuration from various sources
-type ConfigLoader struct {
+type ConfigLoader struct { //nolint:revive // ConfigLoader is clear and consistent
 	client    client.Client
 	namespace string
 }
@@ -100,7 +100,8 @@ func (cl *ConfigLoader) LoadFromFile(filePath string) (*Config, error) {
 		// Try JSON first, then YAML
 		if err := json.Unmarshal(data, config); err != nil {
 			if yamlErr := yaml.Unmarshal(data, config); yamlErr != nil {
-				return nil, fmt.Errorf("failed to parse config file %s as JSON or YAML: JSON error: %v, YAML error: %v", filePath, err, yamlErr)
+				return nil, fmt.Errorf("failed to parse config file %s as JSON or YAML: JSON error: %v, YAML error: %v",
+					filePath, err, yamlErr)
 			}
 		}
 	}
@@ -115,12 +116,33 @@ func (cl *ConfigLoader) LoadFromEnv() (*Config, error) {
 	}
 
 	// Load basic fields
+	cl.loadBasicFields(config)
+
+	// Load operator configuration
+	cl.loadOperatorConfig(config)
+
+	// Load Cloudflare configuration
+	cl.loadCloudflareConfig(config)
+
+	// Load feature flags
+	cl.loadFeatureFlags(config)
+
+	// Load performance configuration
+	cl.loadPerformanceConfig(config)
+
+	return config, nil
+}
+
+// loadBasicFields loads basic configuration fields from environment
+func (cl *ConfigLoader) loadBasicFields(config *Config) {
 	if env := os.Getenv("CONFIG_ENVIRONMENT"); env != "" {
 		config.Environment = env
 		config.ConfigSources["environment"] = ConfigSourceEnv
 	}
+}
 
-	// Load operator configuration
+// loadOperatorConfig loads operator configuration from environment
+func (cl *ConfigLoader) loadOperatorConfig(config *Config) {
 	if logLevel := os.Getenv("CONFIG_OPERATOR_LOG_LEVEL"); logLevel != "" {
 		config.Operator.LogLevel = logLevel
 		config.ConfigSources["operator.logLevel"] = ConfigSourceEnv
@@ -149,8 +171,10 @@ func (cl *ConfigLoader) LoadFromEnv() (*Config, error) {
 			config.ConfigSources["operator.leaderElection"] = ConfigSourceEnv
 		}
 	}
+}
 
-	// Load Cloudflare configuration
+// loadCloudflareConfig loads Cloudflare configuration from environment
+func (cl *ConfigLoader) loadCloudflareConfig(config *Config) {
 	if apiTimeout := os.Getenv("CONFIG_CLOUDFLARE_API_TIMEOUT"); apiTimeout != "" {
 		if duration, err := time.ParseDuration(apiTimeout); err == nil {
 			config.Cloudflare.APITimeout = duration
@@ -178,8 +202,10 @@ func (cl *ConfigLoader) LoadFromEnv() (*Config, error) {
 			config.ConfigSources["cloudflare.retryDelay"] = ConfigSourceEnv
 		}
 	}
+}
 
-	// Load feature flags
+// loadFeatureFlags loads feature flags from environment
+func (cl *ConfigLoader) loadFeatureFlags(config *Config) {
 	config.Features = &FeatureFlags{
 		CustomFlags: make(map[string]bool),
 	}
@@ -211,11 +237,13 @@ func (cl *ConfigLoader) LoadFromEnv() (*Config, error) {
 			config.ConfigSources["features.experimentalFeatures"] = ConfigSourceEnv
 		}
 	}
+}
 
-	// Load performance configuration
+// loadPerformanceConfig loads performance configuration from environment
+func (cl *ConfigLoader) loadPerformanceConfig(config *Config) {
 	if maxConcurrent := os.Getenv("CONFIG_PERFORMANCE_MAX_CONCURRENT_RECONCILES"); maxConcurrent != "" {
-		if max, err := strconv.Atoi(maxConcurrent); err == nil {
-			config.Performance.MaxConcurrentReconciles = max
+		if maxVal, err := strconv.Atoi(maxConcurrent); err == nil {
+			config.Performance.MaxConcurrentReconciles = maxVal
 			config.ConfigSources["performance.maxConcurrentReconciles"] = ConfigSourceEnv
 		}
 	}
@@ -247,8 +275,6 @@ func (cl *ConfigLoader) LoadFromEnv() (*Config, error) {
 			config.ConfigSources["performance.leaderElectionRetryPeriod"] = ConfigSourceEnv
 		}
 	}
-
-	return config, nil
 }
 
 // LoadFromConfigMap loads configuration from a Kubernetes ConfigMap
@@ -399,7 +425,8 @@ func (cl *ConfigLoader) LoadFromSecret(ctx context.Context, name string) (*Confi
 
 // LoadWithPriority loads configuration from multiple sources with priority:
 // Environment variables > ConfigMap > Secret > File > Defaults
-func (cl *ConfigLoader) LoadWithPriority(ctx context.Context, options LoadOptions) (*Config, map[string]ConfigSource, error) {
+func (cl *ConfigLoader) LoadWithPriority(ctx context.Context, options LoadOptions) (
+	*Config, map[string]ConfigSource, error) {
 	if err := options.Validate(); err != nil {
 		return nil, nil, fmt.Errorf("invalid load options: %w", err)
 	}

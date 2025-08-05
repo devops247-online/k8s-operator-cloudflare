@@ -1,3 +1,4 @@
+//nolint:lll // Test files have long assertion descriptions
 package metrics
 
 import (
@@ -13,6 +14,11 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+)
+
+const (
+	testEndpoint = "/zones/dns_records"
+	testZoneID   = "test-zone-123"
 )
 
 func TestCloudflareMetrics_RecordAPIRequest(t *testing.T) {
@@ -41,9 +47,9 @@ func TestCloudflareMetrics_RecordAPIRequest(t *testing.T) {
 
 	// Test data
 	method := "POST"
-	endpoint := "/zones/dns_records"
+	endpoint := testEndpoint
 	status := "200"
-	zoneID := "test-zone-123"
+	zoneID := testZoneID
 	duration := 250 * time.Millisecond
 
 	// Record the metrics
@@ -78,9 +84,9 @@ func TestCloudflareMetrics_RecordAPIError(t *testing.T) {
 
 	// Test data
 	method := "POST"
-	endpoint := "/zones/dns_records"
+	endpoint := testEndpoint
 	errorType := "rate_limit"
-	zoneID := "test-zone-123"
+	zoneID := testZoneID
 
 	// Record the error
 	apiErrorsTotal.WithLabelValues(method, endpoint, errorType, zoneID).Inc()
@@ -113,7 +119,7 @@ func TestCloudflareMetrics_UpdateRateLimit(t *testing.T) {
 	registry.MustRegister(rateLimitRemaining, rateLimitTotal)
 
 	// Test data
-	endpoint := "/zones/dns_records"
+	endpoint := testEndpoint
 	remaining := 900.0
 	total := 1000.0
 
@@ -144,7 +150,7 @@ func TestCloudflareMetrics_UpdateManagedRecords(t *testing.T) {
 	registry.MustRegister(managedRecords)
 
 	// Test data
-	zoneID := "test-zone-123"
+	zoneID := testZoneID
 	zoneName := "example.com"
 	recordType := "A"
 	count := 5.0
@@ -174,7 +180,7 @@ func TestCloudflareMetrics_RecordDNSOperation(t *testing.T) {
 	// Test data
 	operation := "create"
 	recordType := "A"
-	zoneID := "test-zone-123"
+	zoneID := testZoneID
 	result := "success"
 
 	// Record the operation
@@ -492,7 +498,7 @@ func TestCloudflareMetrics_WriteErrorEdgeCases(t *testing.T) {
 	}
 }
 
-func TestCloudflareMetrics_ConcurrentAccess(t *testing.T) {
+func TestCloudflareMetrics_ConcurrentAccess(_ *testing.T) {
 	cm := NewCloudflareMetrics()
 
 	// Test concurrent access that might cause edge cases
@@ -567,7 +573,7 @@ func TestCloudflareMetrics_ForceWriteErrorPaths(t *testing.T) {
 	}
 
 	for i, labels := range extremeLabels {
-		t.Run(fmt.Sprintf("extreme-write-error-%d", i), func(t *testing.T) {
+		t.Run(fmt.Sprintf("extreme-write-error-%d", i), func(_ *testing.T) {
 			// Set values first
 			cm.RecordAPIRequest(labels[0], labels[1], labels[2], labels[3], time.Millisecond)
 			cm.UpdateManagedRecords(labels[3], labels[1], labels[0], float64(i))
@@ -580,7 +586,7 @@ func TestCloudflareMetrics_ForceWriteErrorPaths(t *testing.T) {
 }
 
 // Test with special float values that might cause Write() issues in Cloudflare metrics
-func TestCloudflareMetrics_SpecialFloatWriteErrors(t *testing.T) {
+func TestCloudflareMetrics_SpecialFloatWriteErrors(_ *testing.T) {
 	cm := NewCloudflareMetrics()
 
 	specialValues := []float64{
@@ -607,7 +613,7 @@ func TestCloudflareMetrics_SpecialFloatWriteErrors(t *testing.T) {
 }
 
 // Stress test to potentially trigger internal Prometheus errors in Cloudflare metrics
-func TestCloudflareMetrics_StressWriteErrors(t *testing.T) {
+func TestCloudflareMetrics_StressWriteErrors(_ *testing.T) {
 	cm := NewCloudflareMetrics()
 
 	// Create high contention scenario

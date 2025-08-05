@@ -9,6 +9,13 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+const (
+	// FormatConsole is the console log format
+	FormatConsole = "console"
+	// FormatJSON is the JSON log format
+	FormatJSON = "json"
+)
+
 // Config represents the logging configuration
 type Config struct {
 	// Level sets the logging level (debug, info, warn, error)
@@ -43,7 +50,7 @@ type SamplingConfig struct {
 func NewDefaultConfig() Config {
 	return Config{
 		Level:       "info",
-		Format:      "json",
+		Format:      FormatJSON,
 		Development: false,
 		Sampling: SamplingConfig{
 			Enabled:    false,
@@ -61,17 +68,17 @@ func NewEnvironmentConfig(environment string) Config {
 	switch strings.ToLower(environment) {
 	case "development", "dev":
 		config.Level = "debug"
-		config.Format = "console"
+		config.Format = FormatConsole
 		config.Development = true
 	case "production", "prod":
 		config.Level = "info"
-		config.Format = "json"
+		config.Format = FormatJSON
 		config.Development = false
 		config.Sampling.Enabled = true
 	default:
 		// Default to production settings for unknown environments
 		config.Level = "info"
-		config.Format = "json"
+		config.Format = FormatJSON
 		config.Development = false
 	}
 
@@ -86,7 +93,7 @@ func (c *Config) Validate() error {
 	}
 
 	// Validate format
-	if c.Format != "json" && c.Format != "console" {
+	if c.Format != FormatJSON && c.Format != FormatConsole {
 		return fmt.Errorf("invalid log format: %s, must be 'json' or 'console'", c.Format)
 	}
 
@@ -114,7 +121,7 @@ func (c *Config) GetLevel() zapcore.Level {
 
 // IsJSON returns true if the format is JSON
 func (c *Config) IsJSON() bool {
-	return c.Format == "json"
+	return c.Format == FormatJSON
 }
 
 // String returns a string representation of the config

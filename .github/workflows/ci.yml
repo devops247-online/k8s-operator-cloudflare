@@ -289,7 +289,7 @@ jobs:
               echo "Validating values.yaml: $chart/values.yaml"
               # Use yamllint if available, otherwise use python yaml validation
               if command -v yamllint >/dev/null 2>&1; then
-                yamllint "$chart/values.yaml" && echo "✅ $chart/values.yaml is valid YAML"
+                yamllint -c .yamllint.yml "$chart" && echo "✅ $chart is valid YAML"
               else
                 # Fallback to python yaml validation
                 if python3 -c "import yaml; yaml.safe_load(open('$chart/values.yaml'))" 2>/dev/null; then

@@ -51,7 +51,7 @@ func (m *SimpleMockManager) GetConfig() *rest.Config {
 }
 
 // Add minimal required methods to implement manager.Manager interface
-func (m *SimpleMockManager) Add(runnable manager.Runnable) error {
+func (m *SimpleMockManager) Add(_ manager.Runnable) error {
 	return nil
 }
 
@@ -59,19 +59,19 @@ func (m *SimpleMockManager) Elected() <-chan struct{} {
 	return make(chan struct{})
 }
 
-func (m *SimpleMockManager) AddMetricsServerExtraHandler(path string, handler http.Handler) error {
+func (m *SimpleMockManager) AddMetricsServerExtraHandler(_ string, _ http.Handler) error {
 	return nil
 }
 
-func (m *SimpleMockManager) AddHealthzCheck(name string, check healthz.Checker) error {
+func (m *SimpleMockManager) AddHealthzCheck(_ string, _ healthz.Checker) error {
 	return nil
 }
 
-func (m *SimpleMockManager) AddReadyzCheck(name string, check healthz.Checker) error {
+func (m *SimpleMockManager) AddReadyzCheck(_ string, _ healthz.Checker) error {
 	return nil
 }
 
-func (m *SimpleMockManager) Start(ctx context.Context) error {
+func (m *SimpleMockManager) Start(_ context.Context) error {
 	return nil
 }
 
@@ -103,7 +103,7 @@ func (m *SimpleMockManager) GetCache() cache.Cache {
 	return nil
 }
 
-func (m *SimpleMockManager) GetEventRecorderFor(name string) record.EventRecorder {
+func (m *SimpleMockManager) GetEventRecorderFor(_ string) record.EventRecorder {
 	return nil
 }
 

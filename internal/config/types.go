@@ -135,10 +135,10 @@ type PerformanceConfig struct {
 	LeaderElectionLeaseDuration time.Duration `json:"leaderElectionLeaseDuration" yaml:"leaderElectionLeaseDuration"`
 
 	// LeaderElectionRenewDeadline is the duration that the acting leader will retry refreshing leadership
-	LeaderElectionRenewDeadline time.Duration `json:"leaderElectionRenewDeadline,omitempty" yaml:"leaderElectionRenewDeadline,omitempty"`
+	LeaderElectionRenewDeadline time.Duration `json:"leaderElectionRenewDeadline,omitempty" yaml:"leaderElectionRenewDeadline,omitempty"` //nolint:lll
 
 	// LeaderElectionRetryPeriod is the duration the LeaderElector clients should wait between tries
-	LeaderElectionRetryPeriod time.Duration `json:"leaderElectionRetryPeriod,omitempty" yaml:"leaderElectionRetryPeriod,omitempty"`
+	LeaderElectionRetryPeriod time.Duration `json:"leaderElectionRetryPeriod,omitempty" yaml:"leaderElectionRetryPeriod,omitempty"` //nolint:lll
 }
 
 // NewConfig creates a new configuration with default values
@@ -400,7 +400,8 @@ func (pc *PerformanceConfig) IsValid() error {
 		return err
 	}
 
-	if err := ValidateDuration(pc.RequeueIntervalOnError, 1*time.Second, 1*time.Hour, "requeue interval on error"); err != nil {
+	if err := ValidateDuration(pc.RequeueIntervalOnError, 1*time.Second, 1*time.Hour,
+		"requeue interval on error"); err != nil {
 		return err
 	}
 
@@ -408,18 +409,21 @@ func (pc *PerformanceConfig) IsValid() error {
 		return err
 	}
 
-	if err := ValidateDuration(pc.LeaderElectionLeaseDuration, 1*time.Second, 5*time.Minute, "leader election lease duration"); err != nil {
+	if err := ValidateDuration(pc.LeaderElectionLeaseDuration, 1*time.Second, 5*time.Minute,
+		"leader election lease duration"); err != nil {
 		return err
 	}
 
 	if pc.LeaderElectionRenewDeadline > 0 {
-		if err := ValidateDuration(pc.LeaderElectionRenewDeadline, 1*time.Second, 1*time.Minute, "leader election renew deadline"); err != nil {
+		if err := ValidateDuration(pc.LeaderElectionRenewDeadline, 1*time.Second, 1*time.Minute,
+			"leader election renew deadline"); err != nil {
 			return err
 		}
 	}
 
 	if pc.LeaderElectionRetryPeriod > 0 {
-		if err := ValidateDuration(pc.LeaderElectionRetryPeriod, 100*time.Millisecond, 30*time.Second, "leader election retry period"); err != nil {
+		if err := ValidateDuration(pc.LeaderElectionRetryPeriod, 100*time.Millisecond, 30*time.Second,
+			"leader election retry period"); err != nil {
 			return err
 		}
 	}

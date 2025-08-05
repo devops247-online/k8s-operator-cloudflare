@@ -212,7 +212,7 @@ func (m *FeatureFlagManager) cloneFlags() *FeatureFlags {
 func (m *FeatureFlagManager) String() string {
 	allFlags := m.GetAllFlags()
 
-	var parts []string
+	parts := make([]string, 0, 8) // Pre-allocate for ~8 flags
 
 	// Add standard flags in consistent order
 	standardFlags := []string{"EnableWebhooks", "EnableMetrics", "EnableTracing", "ExperimentalFeatures"}
@@ -224,7 +224,7 @@ func (m *FeatureFlagManager) String() string {
 	}
 
 	// Add custom flags in sorted order
-	var customFlags []string
+	customFlags := make([]string, 0, len(allFlags)) // Pre-allocate for remaining flags
 	for flag := range allFlags {
 		customFlags = append(customFlags, flag)
 	}

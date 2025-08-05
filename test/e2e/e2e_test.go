@@ -25,8 +25,8 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2" //nolint:revive // Using ginkgo DSL
+	. "github.com/onsi/gomega"    //nolint:revive // Using gomega DSL
 
 	"github.com/devops247-online/k8s-operator-cloudflare/test/utils"
 )
@@ -243,33 +243,39 @@ var _ = Describe("Manager", Ordered, func() {
 			_, _ = utils.Run(cleanupCmd)
 
 			By("creating the curl-metrics pod to access the metrics endpoint")
-			cmd = exec.Command("kubectl", "run", "curl-metrics", "--restart=Never",
-				"--namespace", namespace,
-				"--image=curlimages/curl:latest",
-				"--overrides",
-				fmt.Sprintf(`{
-					"spec": {
-						"containers": [{
-							"name": "curl",
-							"image": "curlimages/curl:latest",
-							"command": ["/bin/sh", "-c"],
-							"args": ["echo 'Testing metrics endpoint...' && curl -v -k -H 'Authorization: Bearer %s' https://%s.%s.svc.cluster.local:8443/metrics || echo 'Curl failed with exit code $?' && sleep 10"],
-							"securityContext": {
-								"readOnlyRootFilesystem": true,
-								"allowPrivilegeEscalation": false,
-								"capabilities": {
-									"drop": ["ALL"]
-								},
-								"runAsNonRoot": true,
-								"runAsUser": 1000,
-								"seccompProfile": {
-									"type": "RuntimeDefault"
-								}
-							}
-						}],
-						"serviceAccountName": "%s"
-					}
-				}`, token, metricsServiceName, namespace, serviceAccountName))
+			// Create a temporary YAML file for the pod with proper security context
+			podYAML := fmt.Sprintf(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: curl-metrics
+  namespace: %s
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: curl
+    image: curlimages/curl:latest
+    command: ["curl", "-k", "-f", "-v", "-H", "Authorization: Bearer %s", "https://%s.%s.svc.cluster.local:8443/metrics"]
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: ["ALL"]
+      readOnlyRootFilesystem: true
+`, namespace, token, metricsServiceName, namespace)
+
+			// Write the YAML to a temporary file
+			tmpFile := "/tmp/curl-metrics-pod.yaml"
+			err = os.WriteFile(tmpFile, []byte(podYAML), 0644)
+			Expect(err).NotTo(HaveOccurred(), "Failed to write pod YAML")
+			defer func() { _ = os.Remove(tmpFile) }()
+
+			// Apply the pod manifest
+			cmd = exec.Command("kubectl", "apply", "-f", tmpFile)
 			_, err = utils.Run(cmd)
 			Expect(err).NotTo(HaveOccurred(), "Failed to create curl-metrics pod")
 

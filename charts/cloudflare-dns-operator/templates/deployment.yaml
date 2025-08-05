@@ -88,6 +88,24 @@ spec:
             {{- include "cloudflare-dns-operator.tracingEnvVars" . | nindent 12 }}
             {{- include "cloudflare-dns-operator.tracingResourceAttributesEnvVars" . | nindent 12 }}
             {{- include "cloudflare-dns-operator.tracingHeadersEnvVars" . | nindent 12 }}
+            # SLO Monitoring configuration
+            {{- if .Values.slo.enabled }}
+            - name: SLO_ENABLED
+              value: "true"
+            {{- include "cloudflare-dns-operator.sloEnvVars" . | nindent 12 }}
+            {{- else }}
+            - name: SLO_ENABLED
+              value: "false"
+            {{- end }}
+            # Reliability patterns configuration
+            {{- if .Values.reliability.enabled }}
+            - name: RELIABILITY_ENABLED
+              value: "true"
+            {{- include "cloudflare-dns-operator.reliabilityEnvVars" . | nindent 12 }}
+            {{- else }}
+            - name: RELIABILITY_ENABLED
+              value: "false"
+            {{- end }}
             {{- if .Values.config.enabled }}
             - name: OPERATOR_ENVIRONMENT
               value: {{ .Values.config.environment | default .Values.environment | default "production" | quote }}

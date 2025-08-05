@@ -23,8 +23,8 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2" //nolint:revive // Using ginkgo DSL
+	. "github.com/onsi/gomega"    //nolint:revive // Using gomega DSL
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -63,7 +63,8 @@ func (c *errorClient) Status() client.StatusWriter {
 	}
 }
 
-func (c *errorClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+func (c *errorClient) Get(ctx context.Context, key client.ObjectKey, //nolint:lll
+	obj client.Object, opts ...client.GetOption) error {
 	if c.failGets {
 		return fmt.Errorf("simulated get error")
 	}
@@ -75,7 +76,8 @@ type errorStatusWriter struct {
 	failUpdates bool
 }
 
-func (w *errorStatusWriter) Update(ctx context.Context, obj client.Object, opts ...client.SubResourceUpdateOption) error {
+func (w *errorStatusWriter) Update(ctx context.Context, obj client.Object, //nolint:lll
+	opts ...client.SubResourceUpdateOption) error {
 	if w.failUpdates {
 		return fmt.Errorf("simulated status update error")
 	}

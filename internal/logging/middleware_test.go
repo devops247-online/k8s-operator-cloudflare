@@ -247,7 +247,7 @@ func TestReconcilerMiddlewareWithError(t *testing.T) {
 	testError := errors.New("reconcile failed")
 
 	// Mock reconciler that fails
-	mockReconciler := reconcile.Func(func(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+	mockReconciler := reconcile.Func(func(_ context.Context, _ reconcile.Request) (reconcile.Result, error) {
 		return reconcile.Result{RequeueAfter: 5 * time.Minute}, testError
 	})
 
@@ -281,7 +281,7 @@ func TestReconcilerMiddlewareWithRequeue(t *testing.T) {
 	logger := zap.New(observedZapCore)
 
 	// Mock reconciler that requests requeue
-	mockReconciler := reconcile.Func(func(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+	mockReconciler := reconcile.Func(func(_ context.Context, _ reconcile.Request) (reconcile.Result, error) {
 		return reconcile.Result{
 			Requeue:      true,
 			RequeueAfter: 5 * time.Minute,

@@ -8,6 +8,14 @@ import (
 	"time"
 )
 
+const (
+	// ExporterOTLP represents the OTLP exporter type
+	ExporterOTLP = "otlp"
+
+	// SamplingTraceIDRatio represents trace ID ratio sampling type
+	SamplingTraceIDRatio = "trace_id_ratio"
+)
+
 // Config represents the tracing configuration
 type Config struct {
 	// Enabled controls whether tracing is enabled
@@ -98,16 +106,16 @@ func NewEnvironmentConfig(environment string) Config {
 		config.Sampling.Ratio = 1.0
 	case "staging":
 		config.Enabled = true
-		config.Exporter.Type = "otlp"
+		config.Exporter.Type = ExporterOTLP
 		config.Exporter.Endpoint = "http://localhost:4318/v1/traces"
-		config.Sampling.Type = "trace_id_ratio"
+		config.Sampling.Type = SamplingTraceIDRatio
 		config.Sampling.Ratio = 0.5
 	case "production", "prod":
 		config.Enabled = true
-		config.Exporter.Type = "otlp"
+		config.Exporter.Type = ExporterOTLP
 		config.Exporter.Endpoint = "http://localhost:4318/v1/traces"
 		config.Exporter.Insecure = false
-		config.Sampling.Type = "trace_id_ratio"
+		config.Sampling.Type = SamplingTraceIDRatio
 		config.Sampling.Ratio = 0.1
 	default:
 		// Default to development settings for unknown environments

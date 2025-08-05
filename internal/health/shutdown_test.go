@@ -39,7 +39,7 @@ func TestAddShutdownCallback(t *testing.T) {
 	t.Run("adds single callback", func(t *testing.T) {
 		gsm := NewGracefulShutdownManager(10 * time.Second)
 
-		callback := func(ctx context.Context) error {
+		callback := func(_ context.Context) error {
 			return nil
 		}
 
@@ -54,9 +54,9 @@ func TestAddShutdownCallback(t *testing.T) {
 		gsm := NewGracefulShutdownManager(10 * time.Second)
 
 		callbacks := []func(context.Context) error{
-			func(ctx context.Context) error { return nil },
-			func(ctx context.Context) error { return nil },
-			func(ctx context.Context) error { return nil },
+			func(_ context.Context) error { return nil },
+			func(_ context.Context) error { return nil },
+			func(_ context.Context) error { return nil },
 		}
 
 		for _, callback := range callbacks {
@@ -81,7 +81,7 @@ func TestAddShutdownCallback(t *testing.T) {
 			go func() {
 				defer wg.Done()
 				for j := 0; j < numCallbacks; j++ {
-					gsm.AddShutdownCallback(func(ctx context.Context) error {
+					gsm.AddShutdownCallback(func(_ context.Context) error {
 						return nil
 					})
 				}
@@ -106,7 +106,7 @@ func TestExecuteGracefulShutdown(t *testing.T) {
 		// Add callbacks that record execution order
 		for i := 0; i < 3; i++ {
 			index := i
-			gsm.AddShutdownCallback(func(ctx context.Context) error {
+			gsm.AddShutdownCallback(func(_ context.Context) error {
 				mu.Lock()
 				defer mu.Unlock()
 				executionOrder = append(executionOrder, index)
@@ -128,7 +128,7 @@ func TestExecuteGracefulShutdown(t *testing.T) {
 		mu := sync.Mutex{}
 
 		// First callback succeeds
-		gsm.AddShutdownCallback(func(ctx context.Context) error {
+		gsm.AddShutdownCallback(func(_ context.Context) error {
 			mu.Lock()
 			defer mu.Unlock()
 			executed[0] = true
@@ -136,7 +136,7 @@ func TestExecuteGracefulShutdown(t *testing.T) {
 		})
 
 		// Second callback fails
-		gsm.AddShutdownCallback(func(ctx context.Context) error {
+		gsm.AddShutdownCallback(func(_ context.Context) error {
 			mu.Lock()
 			defer mu.Unlock()
 			executed[1] = true
@@ -144,7 +144,7 @@ func TestExecuteGracefulShutdown(t *testing.T) {
 		})
 
 		// Third callback succeeds
-		gsm.AddShutdownCallback(func(ctx context.Context) error {
+		gsm.AddShutdownCallback(func(_ context.Context) error {
 			mu.Lock()
 			defer mu.Unlock()
 			executed[2] = true
@@ -268,7 +268,7 @@ func TestGracefulShutdownIntegration(t *testing.T) {
 
 		// Add custom callback
 		customExecuted := false
-		gsm.AddShutdownCallback(func(ctx context.Context) error {
+		gsm.AddShutdownCallback(func(_ context.Context) error {
 			customExecuted = true
 			return nil
 		})
@@ -289,7 +289,7 @@ func TestGracefulShutdownIntegration(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for i := 0; i < 5; i++ {
-				gsm.AddShutdownCallback(func(ctx context.Context) error {
+				gsm.AddShutdownCallback(func(_ context.Context) error {
 					time.Sleep(10 * time.Millisecond)
 					return nil
 				})
@@ -324,8 +324,8 @@ func TestShutdownManagerHelpers(t *testing.T) {
 		assert.Equal(t, 0, initialCount)
 
 		// After adding callbacks
-		gsm.AddShutdownCallback(func(ctx context.Context) error { return nil })
-		gsm.AddShutdownCallback(func(ctx context.Context) error { return nil })
+		gsm.AddShutdownCallback(func(_ context.Context) error { return nil })
+		gsm.AddShutdownCallback(func(_ context.Context) error { return nil })
 
 		gsm.mu.RLock()
 		afterAddCount := len(gsm.shutdownCallbacks)

@@ -1,4 +1,3 @@
----
 # Default values for cloudflare-dns-operator.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
@@ -967,10 +966,7 @@ tracing:
     ratio: 0.1
 
   # Custom resource attributes
-  resourceAttributes:
-    # Add custom attributes to traces
-    # deployment.environment: production
-    # service.namespace: cloudflare-dns-operator
+  resourceAttributes: {}
 
   # Environment-specific overrides
   environments:
@@ -998,3 +994,311 @@ tracing:
       sampling:
         type: parent_based
         ratio: 0.1
+
+# SLO (Service Level Objectives) configuration
+slo:
+  # Enable SLO monitoring
+  enabled: false
+
+  # SLO targets configuration
+  targets:
+    # Availability target percentage (e.g., 99.9 = 99.9% uptime)
+    availability: 99.9
+    # Success rate target percentage (e.g., 99.5 = 99.5% of requests succeed)
+    successRate: 99.5
+    # Latency P95 target (95th percentile response time)
+    latencyP95: 30s
+    # Latency P99 target (99th percentile response time)
+    latencyP99: 60s
+    # Minimum throughput (requests per minute)
+    throughputMin: 10.0
+
+  # Error budget configuration
+  errorBudget:
+    # Rolling window for error budget calculation (in days)
+    windowDays: 30
+    # Alert thresholds for error budget consumption
+    alertThresholds:
+      # Warning when 50% of error budget is consumed
+      warning: 0.5
+      # Critical when 90% of error budget is consumed
+      critical: 0.9
+    # Error budget policies (actions to take at different consumption levels)
+    policies:
+      - threshold: 0.5
+        action: notify
+        description: "Notify team when 50% of error budget is consumed"
+      - threshold: 0.75
+        action: slow_deployment
+        description: "Slow deployments when 75% of error budget consumed"
+      - threshold: 0.9
+        action: freeze_deployments
+        description: "Freeze deployments when 90% of error budget consumed"
+
+  # Time windows for SLI calculation
+  windows:
+    - name: "5m"
+      duration: 5m
+      shortTerm: true
+    - name: "30m"
+      duration: 30m
+      shortTerm: true
+    - name: "1h"
+      duration: 1h
+      shortTerm: false
+    - name: "6h"
+      duration: 6h
+      shortTerm: false
+    - name: "1d"
+      duration: 24h
+      shortTerm: false
+    - name: "30d"
+      duration: 720h  # 30 days
+      shortTerm: false
+
+  # Multi-window, multi-burn-rate alerting configuration
+  alerting:
+    # Page alerts for critical issues (fast burn)
+    pageAlerts:
+      enabled: true
+      shortWindow: 5m
+      longWindow: 1h
+      burnRateThreshold: 14.4  # Consumes monthly budget in ~6 hours
+      severity: critical
+    # Ticket alerts for slower burns
+    ticketAlerts:
+      enabled: true
+      shortWindow: 30m
+      longWindow: 6h
+      burnRateThreshold: 6.0   # Consumes monthly budget in ~3 days
+      severity: warning
+
+  # Prometheus recording rules configuration
+  recordingRules:
+    # Enable automatic generation of recording rules
+    enabled: true
+    # Namespace for PrometheusRule CRD (empty = release namespace)
+    namespace: ""
+    # Name for the PrometheusRule resource
+    name: slo-recording-rules
+    # Additional labels for PrometheusRule
+    labels:
+      app.kubernetes.io/component: slo-monitoring
+      prometheus: kube-prometheus
+      role: alert-rules
+    # Additional annotations
+    annotations:
+      description: "SLO recording rules for Cloudflare DNS Operator"
+    # Rule groups configuration
+    groups:
+      sli:
+        name: "cloudflare-dns-operator.sli"
+        interval: 30s
+      burnRate:
+        name: "cloudflare-dns-operator.slo.burn_rate"
+        interval: 30s
+      errorBudget:
+        name: "cloudflare-dns-operator.slo.error_budget"
+        interval: 1m
+      multiWindow:
+        name: "cloudflare-dns-operator.slo.multi_window"
+        interval: 30s
+
+  # Environment-specific SLO configurations
+  environments:
+    development:
+      enabled: true
+      targets:
+        availability: 95.0    # Lower targets for dev
+        successRate: 90.0
+        latencyP95: 60s
+        latencyP99: 120s
+        throughputMin: 1.0
+      errorBudget:
+        windowDays: 7         # Shorter window for dev
+        alertThresholds:
+          warning: 0.7
+          critical: 0.9
+      alerting:
+        pageAlerts:
+          enabled: false      # No paging in dev
+        ticketAlerts:
+          enabled: true
+          severity: info
+    staging:
+      enabled: true
+      targets:
+        availability: 99.0    # Moderate targets for staging
+        successRate: 98.0
+        latencyP95: 45s
+        latencyP99: 90s
+        throughputMin: 5.0
+      errorBudget:
+        windowDays: 14        # Medium window for staging
+        alertThresholds:
+          warning: 0.6
+          critical: 0.85
+      alerting:
+        pageAlerts:
+          enabled: false      # No paging in staging
+        ticketAlerts:
+          enabled: true
+          severity: warning
+    production:
+      enabled: true
+      targets:
+        availability: 99.9    # Strict targets for production
+        successRate: 99.5
+        latencyP95: 30s
+        latencyP99: 60s
+        throughputMin: 10.0
+      errorBudget:
+        windowDays: 30        # Full monthly window
+        alertThresholds:
+          warning: 0.5
+          critical: 0.9
+      alerting:
+        pageAlerts:
+          enabled: true
+          severity: critical
+        ticketAlerts:
+          enabled: true
+          severity: warning
+
+# Reliability patterns configuration
+reliability:
+  # Enable reliability features
+  enabled: false
+
+  # Circuit breaker configuration
+  circuitBreaker:
+    # Enable circuit breaker for Cloudflare API calls
+    enabled: true
+    # Circuit breaker name
+    name: cloudflare-api
+    # Maximum requests allowed when circuit is half-open
+    maxRequests: 3
+    # Interval to clear the internal Counts
+    interval: 60s
+    # Timeout for circuit breaker to transition from open to half-open
+    timeout: 30s
+    # Failure rate threshold to trip the circuit (0.0-1.0)
+    failureRateThreshold: 0.6
+    # Minimum number of requests before considering failure rate
+    minimumRequests: 5
+
+  # Retry logic configuration
+  retry:
+    # Enable retry logic with exponential backoff
+    enabled: true
+    # Maximum number of retry attempts
+    maxAttempts: 3
+    # Initial backoff delay
+    initialDelay: 1s
+    # Maximum backoff delay
+    maxDelay: 30s
+    # Backoff multiplier
+    multiplier: 2.0
+    # Add jitter to prevent thundering herd
+    jitter: true
+    # Maximum jitter as percentage of delay (0.0-1.0)
+    maxJitter: 0.1
+    # Retryable HTTP status codes
+    retryableStatusCodes:
+      - 429  # Too Many Requests
+      - 500  # Internal Server Error
+      - 502  # Bad Gateway
+      - 503  # Service Unavailable
+      - 504  # Gateway Timeout
+    # Retryable error types
+    retryableErrors:
+      - "context deadline exceeded"
+      - "connection refused"
+      - "connection reset"
+
+  # Rate limiter configuration
+  rateLimiter:
+    # Enable rate limiting for Cloudflare API calls
+    enabled: true
+    # Rate limiter type: token_bucket, sliding_window, fixed_window
+    type: token_bucket
+    # Requests per second
+    requestsPerSecond: 4.0    # Cloudflare limit is 1200/5min = 4/sec
+    # Burst size (max tokens in bucket)
+    burstSize: 10
+    # Window size for rate limiting
+    windowSize: 1s
+    # Backoff strategy when rate limited: block, reject, adaptive
+    backoffStrategy: block
+    # Callback function when rate limited (for monitoring)
+    onRateLimited:
+      enabled: true
+      # Log rate limiting events
+      logEvents: true
+      # Emit metrics for rate limiting
+      emitMetrics: true
+
+  # Reliability metrics configuration
+  metrics:
+    # Enable reliability metrics collection
+    enabled: true
+    # Metrics prefix
+    prefix: cloudflare_dns_operator_reliability
+    # Circuit breaker metrics
+    circuitBreaker:
+      enabled: true
+      # Metrics to collect
+      metrics:
+        - requests_total
+        - failures_total
+        - successes_total
+        - state_changes_total
+        - current_state
+    # Retry metrics
+    retry:
+      enabled: true
+      metrics:
+        - attempts_total
+        - successes_total
+        - failures_total
+        - backoff_duration_seconds
+    # Rate limiter metrics
+    rateLimiter:
+      enabled: true
+      metrics:
+        - requests_allowed_total
+        - requests_rejected_total
+        - current_tokens
+        - wait_duration_seconds
+
+  # Environment-specific reliability configurations
+  environments:
+    development:
+      circuitBreaker:
+        enabled: false        # Disable circuit breaker in dev
+      retry:
+        maxAttempts: 2        # Fewer retries in dev
+        maxDelay: 10s
+      rateLimiter:
+        requestsPerSecond: 10.0  # Higher rate limit for dev
+        backoffStrategy: reject  # Fail fast in dev
+    staging:
+      circuitBreaker:
+        enabled: true
+        failureRateThreshold: 0.7  # Higher threshold for staging
+      retry:
+        maxAttempts: 3
+        maxDelay: 20s
+      rateLimiter:
+        requestsPerSecond: 6.0     # Moderate rate limit
+        backoffStrategy: block
+    production:
+      circuitBreaker:
+        enabled: true
+        failureRateThreshold: 0.6  # Strict threshold for production
+      retry:
+        maxAttempts: 3
+        maxDelay: 30s
+      rateLimiter:
+        requestsPerSecond: 4.0     # Conservative rate limit
+        backoffStrategy: block

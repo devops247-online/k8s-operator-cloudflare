@@ -200,6 +200,99 @@ spec:
         description: "A new Cloudflare zone {{`{{ $labels.zone_name }}`}} has been added to the operator's management"
     {{- end }}
 
+  {{- if and .Values.slo.enabled .Values.slo.alerting }}
+  # SLO-based Alerting Rules
+  {{- if .Values.slo.alerting.pageAlerts.enabled }}
+  - name: {{ include "cloudflare-dns-operator.fullname" . }}.slo.page
+    interval: 30s
+    rules:
+    - alert: CloudflareDNSOperatorSLOPageBurnRateHigh
+      expr: |
+        (
+          slo:multi_window_burn_rate:availability:5m_1h > 0
+          or
+          slo:multi_window_burn_rate:availability:30m_6h > 0
+          or
+          slo:multi_window_burn_rate:success_rate:5m_1h > 0
+          or
+          slo:multi_window_burn_rate:success_rate:30m_6h > 0
+        )
+      for: 2m
+      labels:
+        severity: {{ .Values.slo.alerting.pageAlerts.severity }}
+        service: cloudflare-dns-operator
+        component: slo-monitoring
+        alert_type: page
+      annotations:
+        summary: "Critical SLO burn rate detected - requires immediate attention"
+        description: "The error budget is being consumed at a rate that would exhaust the monthly budget in less than 6 hours. This requires immediate investigation and action."
+        runbook_url: "https://github.com/devops247-online/k8s-operator-cloudflare/blob/main/docs/runbooks/slo-burn-rate.md"
+    {{- end }}
+
+    {{- if .Values.slo.alerting.ticketAlerts.enabled }}
+  - name: {{ include "cloudflare-dns-operator.fullname" . }}.slo.ticket
+    interval: 60s
+    rules:
+    - alert: CloudflareDNSOperatorSLOTicketBurnRateHigh
+      expr: |
+        (
+          slo:multi_window_burn_rate:availability:2h_1d > 0
+          or
+          slo:multi_window_burn_rate:availability:6h_3d > 0
+          or
+          slo:multi_window_burn_rate:success_rate:2h_1d > 0
+          or
+          slo:multi_window_burn_rate:success_rate:6h_3d > 0
+        )
+      for: 15m
+      labels:
+        severity: {{ .Values.slo.alerting.ticketAlerts.severity }}
+        service: cloudflare-dns-operator
+        component: slo-monitoring
+        alert_type: ticket
+      annotations:
+        summary: "Elevated SLO burn rate detected - investigation recommended"
+        description: "The error budget is being consumed at a rate that would exhaust the monthly budget in 1-3 days. Please investigate potential issues."
+        runbook_url: "https://github.com/devops247-online/k8s-operator-cloudflare/blob/main/docs/runbooks/slo-burn-rate.md"
+
+    - alert: CloudflareDNSOperatorErrorBudgetLow
+      expr: |
+        (
+          slo:error_budget_remaining:availability:30d < 0.1
+          or
+          slo:error_budget_remaining:success_rate:30d < 0.1
+        )
+      for: 5m
+      labels:
+        severity: warning
+        service: cloudflare-dns-operator
+        component: slo-monitoring
+        alert_type: error_budget
+      annotations:
+        summary: "Error budget critically low"
+        description: "Less than 10% of the monthly error budget remains. {{`{{ $labels.slo_type }}`}} SLO is at risk."
+        runbook_url: "https://github.com/devops247-online/k8s-operator-cloudflare/blob/main/docs/runbooks/error-budget-low.md"
+
+    - alert: CloudflareDNSOperatorErrorBudgetExhausted
+      expr: |
+        (
+          slo:error_budget_remaining:availability:30d <= 0
+          or
+          slo:error_budget_remaining:success_rate:30d <= 0
+        )
+      for: 1m
+      labels:
+        severity: critical
+        service: cloudflare-dns-operator
+        component: slo-monitoring
+        alert_type: error_budget
+      annotations:
+        summary: "Error budget exhausted"
+        description: "The monthly error budget for {{`{{ $labels.slo_type }}`}} SLO has been completely exhausted. Consider freezing deployments."
+        runbook_url: "https://github.com/devops247-online/k8s-operator-cloudflare/blob/main/docs/runbooks/error-budget-exhausted.md"
+    {{- end }}
+  {{- end }}
+
   {{- if .Values.monitoring.prometheusRule.customRules }}
   - name: {{ include "cloudflare-dns-operator.fullname" . }}.custom
     interval: 30s

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package utils
+package utils //nolint:revive // Test utils package name is descriptive
 
 import (
 	"fmt"
@@ -23,8 +23,8 @@ import (
 	"strings"
 	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2" //nolint:revive // Using ginkgo DSL
+	. "github.com/onsi/gomega"    //nolint:revive // Using gomega DSL
 )
 
 func TestUtils(t *testing.T) {

@@ -42,33 +42,33 @@ networkPolicy:
     - Egress
   egress:
     - ports:
-      - port: 443
-        protocol: TCP
-      - port: 53
-        protocol: UDP
-      - port: 53
-        protocol: TCP
+        - port: 443
+          protocol: TCP
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
 
 # High availability configuration
 affinity:
   podAntiAffinity:
     preferredDuringSchedulingIgnoredDuringExecution:
-    - weight: 100
-      podAffinityTerm:
-        labelSelector:
-          matchExpressions:
-          - key: app.kubernetes.io/name
-            operator: In
-            values:
-            - cloudflare-dns-operator
-        topologyKey: kubernetes.io/hostname
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - cloudflare-dns-operator
+          topologyKey: kubernetes.io/hostname
 
 # Production security context
 securityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop:
-    - ALL
+      - ALL
   readOnlyRootFilesystem: true
   runAsNonRoot: true
   runAsUser: 65532
@@ -79,3 +79,96 @@ podSecurityContext:
   fsGroup: 65532
   seccompProfile:
     type: RuntimeDefault
+
+# Production SLO configuration
+slo:
+  enabled: true
+  targets:
+    availability: 99.9    # 99.9% uptime SLO for production
+    successRate: 99.5     # 99.5% success rate SLO
+    latencyP95: 30s       # P95 latency target
+    latencyP99: 60s       # P99 latency target
+    throughputMin: 10.0   # Minimum 10 req/min throughput
+
+  errorBudget:
+    windowDays: 30
+    alertThresholds:
+      warning: 0.5        # Alert when 50% budget consumed
+      critical: 0.9       # Critical when 90% budget consumed
+
+  alerting:
+    pageAlerts:
+      enabled: true
+      severity: critical
+    ticketAlerts:
+      enabled: true
+      severity: warning
+
+  recordingRules:
+    enabled: true
+    namespace: monitoring
+    labels:
+      environment: production
+      team: platform
+
+# Production reliability configuration
+reliability:
+  enabled: true
+
+  circuitBreaker:
+    enabled: true
+    name: cloudflare-api-prod
+    maxRequests: 3
+    interval: 60s
+    timeout: 30s
+    failureRateThreshold: 0.6    # Conservative threshold for production
+    minimumRequests: 5
+
+  retry:
+    enabled: true
+    maxAttempts: 3
+    initialDelay: 1s
+    maxDelay: 30s
+    multiplier: 2.0
+    jitter: true
+
+  rateLimiter:
+    enabled: true
+    type: token_bucket
+    requestsPerSecond: 4.0       # Conservative rate for production
+    burstSize: 10
+    backoffStrategy: block
+
+  metrics:
+    enabled: true
+    prefix: cloudflare_dns_operator_reliability
+
+# Production environment configuration
+config:
+  enabled: true
+  environment: production
+
+  operator:
+    logLevel: info
+    reconcileInterval: "5m"
+
+  cloudflare:
+    apiTimeout: "30s"
+    rateLimitRPS: 4
+    retryAttempts: 3
+    retryDelay: "1s"
+
+# Production logging configuration
+logging:
+  enabled: true
+  level: info
+  format: json
+  development: false
+  sampling:
+    enabled: true
+    initial: 50
+    thereafter: 200
+
+# Disable tracing in production by default
+tracing:
+  enabled: false
