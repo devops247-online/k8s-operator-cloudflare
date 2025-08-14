@@ -15,7 +15,7 @@ This operator allows you to manage DNS records in Cloudflare directly from Kuber
 ## Getting Started
 
 ### Prerequisites
-- go version v1.24.0+
+- go version v1.25.0+
 - docker version 17.03+.
 - kubectl version v1.11.3+.
 - Access to a Kubernetes v1.11.3+ cluster.
@@ -121,7 +121,7 @@ is manually re-applied afterwards.
 ## Development
 
 ### Prerequisites for Development
-- Go 1.24.0+
+- Go 1.25.0+
 - Docker 17.03+
 - kubectl v1.11.3+
 - Access to a Kubernetes cluster (local or remote)
