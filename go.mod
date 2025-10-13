@@ -3,7 +3,7 @@ module github.com/devops247-online/k8s-operator-cloudflare
 go 1.24.0
 
 require (
-	github.com/cloudflare/cloudflare-go v0.115.0
+	github.com/cloudflare/cloudflare-go v0.116.0
 	github.com/go-logr/logr v1.4.3
 	github.com/go-logr/zapr v1.3.0
 	github.com/onsi/ginkgo/v2 v2.25.1
