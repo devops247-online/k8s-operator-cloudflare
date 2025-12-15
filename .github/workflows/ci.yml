@@ -103,7 +103,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
         if: hashFiles('lcov.info') != ''
       - name: Upload coverage artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: coverage-reports
           path: |
@@ -153,7 +153,7 @@ jobs:
           sarif_file: results.sarif
         if: always() && hashFiles('results.sarif') != ''
       - name: Upload gosec report as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: gosec-report
           path: results.sarif
@@ -211,7 +211,7 @@ jobs:
           docker save test-image:latest > test-image.tar
 
       - name: Upload Docker image artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: docker-image
           path: test-image.tar
@@ -382,7 +382,7 @@ jobs:
           fi
           echo "Kubernetes manifests validation completed successfully"
       - name: Upload manifest artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: kubernetes-manifests
           path: dist/
@@ -562,7 +562,7 @@ jobs:
           cat cis-report.txt
 
       - name: Upload CIS Compliance Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: cis-compliance-report
           path: |
